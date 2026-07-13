@@ -1,6 +1,9 @@
 # Laufzeitdaten (DB + hochgeladene Bilder)
 /data/
 
+# Secrets / lokale Konfiguration
+.env
+
 # Python
 __pycache__/
 *.py[cod]

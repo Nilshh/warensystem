@@ -1,21 +1,33 @@
 {% extends "base.html" %}
 {% block title %}Dashboard · Warenwirtschaft{% endblock %}
 {% block content %}
-<h1>Dashboard</h1>
+<div class="page-head">
+  <h1>Dashboard</h1>
+  <form method="get" action="/" class="yearpick">
+    <label>Jahr
+      <select name="year" onchange="this.form.submit()">
+        {% if not years %}<option value="{{ year }}">{{ year }}</option>{% endif %}
+        {% for y in years %}
+        <option value="{{ y }}" {{ 'selected' if y == year else '' }}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </form>
+</div>
 
 <section class="cards">
   <div class="card kpi">
-    <span class="kpi-label">Umsatz (verkauft)</span>
+    <span class="kpi-label">Umsatz {{ year }}</span>
     <span class="kpi-value">{{ umsatz | eur }}</span>
     <span class="kpi-sub">{{ verkauft_anzahl }} Artikel verkauft</span>
   </div>
   <div class="card kpi">
-    <span class="kpi-label">Kosten (verkauft)</span>
+    <span class="kpi-label">Kosten {{ year }}</span>
     <span class="kpi-value">{{ kosten | eur }}</span>
     <span class="kpi-sub">Einkauf + Versand + Gebühren</span>
   </div>
   <div class="card kpi {{ 'positive' if gewinn >= 0 else 'negative' }}">
-    <span class="kpi-label">Gewinn</span>
+    <span class="kpi-label">Gewinn {{ year }}</span>
     <span class="kpi-value">{{ gewinn | eur }}</span>
     <span class="kpi-sub">Umsatz − Kosten</span>
   </div>
@@ -37,6 +49,51 @@
 </section>
 
 <section class="card">
+  <div class="chart-head">
+    <h2>Umsatz &amp; Gewinn {{ year }}</h2>
+    <div class="legend">
+      <span class="legend-item"><span class="swatch s-umsatz"></span>Umsatz</span>
+      <span class="legend-item"><span class="swatch s-gewinn"></span>Gewinn</span>
+    </div>
+  </div>
+
+  <div class="barchart" role="img" aria-label="Monatlicher Umsatz und Gewinn {{ year }}">
+    {% for m in monthly %}
+    <div class="bar-col">
+      <div class="bars">
+        <div class="bar umsatz" style="height: {{ (m.umsatz / chart_max * 100) | round(1) }}%"
+             title="Umsatz {{ m.name }}: {{ m.umsatz | eur }}">
+          {% if m.umsatz > 0 %}<span class="bar-val">{{ (m.umsatz | round | int) }}</span>{% endif %}
+        </div>
+        <div class="bar gewinn" style="height: {{ ((m.gewinn if m.gewinn > 0 else 0) / chart_max * 100) | round(1) }}%"
+             title="Gewinn {{ m.name }}: {{ m.gewinn | eur }}">
+          {% if m.gewinn != 0 %}<span class="bar-val {{ 'neg' if m.gewinn < 0 else '' }}">{{ (m.gewinn | round | int) }}</span>{% endif %}
+        </div>
+      </div>
+      <span class="bar-label">{{ m.name }}</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <details class="table-toggle">
+    <summary>Als Tabelle anzeigen</summary>
+    <table class="data compact">
+      <thead><tr><th>Monat</th><th class="num">Verkäufe</th><th class="num">Umsatz</th><th class="num">Gewinn</th></tr></thead>
+      <tbody>
+        {% for m in monthly %}
+        <tr>
+          <td>{{ m.name }}</td>
+          <td class="num">{{ m.count }}</td>
+          <td class="num">{{ m.umsatz | eur }}</td>
+          <td class="num {{ 'positive' if m.gewinn > 0 else ('negative' if m.gewinn < 0 else '') }}">{{ m.gewinn | eur }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </details>
+</section>
+
+<section class="card">
   <h2>Status-Übersicht</h2>
   <div class="status-grid">
     {% for status, count in status_counts.items() %}
@@ -51,13 +108,14 @@
 <section class="card">
   <h2>Werkzeuge</h2>
   <div class="toolbar">
-    <a class="btn" href="/export.csv">⬇ CSV-Export</a>
+    <a class="btn" href="/export.csv">⬇ CSV-Export (alle)</a>
+    <a class="btn" href="/export.csv?year={{ year }}">⬇ CSV-Export {{ year }}</a>
     {% if ebay_configured %}
       <form method="post" action="/ebay/sync" style="display:inline">
         <button class="btn" type="submit">🔄 eBay synchronisieren</button>
       </form>
     {% else %}
-      <span class="hint">eBay-Sync inaktiv — Zugangsdaten in <code>docker-compose.yml</code> hinterlegen.</span>
+      <span class="hint">eBay-Sync inaktiv — Zugangsdaten in <code>.env</code> hinterlegen.</span>
     {% endif %}
   </div>
 </section>

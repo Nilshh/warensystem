@@ -10,14 +10,23 @@ LXC-Container im Proxmox-Cluster. Bedienung über die **Web-UI**.
 
 ## Funktionen
 
-- Artikelverwaltung (Titel, Kategorie, Zustand, Beschreibung, Status)
-- **Bilder-Upload** pro Artikel
+- Artikelverwaltung (Titel, Kategorie, Zustand, Beschreibung, Status, **Tags**)
+- **Bilder-Upload** pro Artikel, inkl. **Hauptbild festlegen**
 - Links + Angebots-Status für **eBay** und **Kleinanzeigen** (parallel)
-- **Preise & Kosten**: Einkauf, Angebotspreis, Verkaufspreis, Versand, Gebühren
-- **Automatische Gewinnberechnung** (Verkaufspreis − Einkauf − Versand − Gebühren)
-- **Dashboard**: Umsatz, Kosten, Gewinn, offene Artikel, gebundenes Kapital, Status-Übersicht
-- **CSV-Export** (Excel-kompatibel, für Buchhaltung/Steuer)
+- **Preise & Kosten**: Einkauf, Angebotspreis, Verkaufspreis, Versandart (Dropdown), Versandkosten, Gebühren
+- **Automatische Gewinn- und Margenberechnung**
+- **Käufer- & Versandabwicklung**: verkauft über, Käufer, Zahlungsart, Bestell-/Versanddatum, Sendungsverfolgung
+- **Dashboard** mit **Jahresfilter**: Umsatz, Kosten, Gewinn, offene Artikel, gebundenes Kapital,
+  Status-Übersicht und **Monats-Diagramm** (Umsatz & Gewinn)
+- **Artikelliste** mit Suche, Status-/Tag-Filter und **sortierbaren Spalten**
+- **Artikel duplizieren** (als Vorlage)
+- **CSV-Export** (Excel-kompatibel, optional pro Jahr — für Buchhaltung/Steuer)
 - eBay-API im Code **vorbereitet** (siehe `app/ebay.py`), Kleinanzeigen bleibt manuell
+
+Secrets/Konfiguration liegen in einer nicht eingecheckten `.env` (siehe `.env.example`).
+Das Datenbankschema wird beim Start automatisch um neue Felder ergänzt
+(leichtgewichtige Migration in `app/migrations.py`) — ein Update erfordert kein
+Zurücksetzen der Datenbank.
 
 ## Schnellstart (lokal zum Testen)
 
@@ -39,9 +48,10 @@ Die Daten (SQLite-DB + hochgeladene Bilder) liegen im Ordner `./data` und bleibe
    ```bash
    apt update && apt install -y docker.io docker-compose-plugin git
    ```
-3. Dieses Repo klonen und starten:
+3. Dieses Repo klonen, `.env` anlegen und starten:
    ```bash
    git clone <repo-url> warensystem && cd warensystem
+   cp .env.example .env       # optional anpassen (eBay-Gebühr, später API-Zugang)
    docker compose up -d --build
    ```
 4. Aufruf über die LAN-IP des Containers: `http://<container-ip>:8000`

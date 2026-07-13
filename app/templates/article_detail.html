@@ -11,6 +11,9 @@
   </div>
   <div class="actions">
     <a class="btn" href="/articles/{{ article.id }}/edit">Bearbeiten</a>
+    <form method="post" action="/articles/{{ article.id }}/duplicate" style="display:inline">
+      <button class="btn" type="submit" title="Als Vorlage kopieren">Duplizieren</button>
+    </form>
     <form method="post" action="/articles/{{ article.id }}/delete"
           onsubmit="return confirm('Artikel wirklich löschen?')" style="display:inline">
       <button class="btn btn-danger" type="submit">Löschen</button>
@@ -18,16 +21,30 @@
   </div>
 </div>
 
+{% if article.tag_list %}
+<div class="tag-row">
+  {% for t in article.tag_list %}
+  <a class="tag chip" href="/articles?tag={{ t }}">{{ t }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+
 <div class="detail-grid">
   <section class="card">
     <h2>Bilder</h2>
     <div class="gallery">
       {% for img in article.images %}
-      <div class="gallery-item">
+      <div class="gallery-item {{ 'is-main' if loop.first else '' }}">
         <img src="/uploads/{{ img.filename }}" alt="">
+        {% if loop.first %}<span class="main-badge">Hauptbild</span>{% endif %}
         <form method="post" action="/articles/{{ article.id }}/images/{{ img.id }}/delete">
           <button class="img-del" type="submit" title="Bild löschen">✕</button>
         </form>
+        {% if not loop.first %}
+        <form method="post" action="/articles/{{ article.id }}/images/{{ img.id }}/main">
+          <button class="img-main" type="submit" title="Als Hauptbild">★</button>
+        </form>
+        {% endif %}
       </div>
       {% else %}
       <p class="muted">Noch keine Bilder.</p>
@@ -51,6 +68,9 @@
       <tr class="total {{ 'positive' if article.profit and article.profit >= 0 else ('negative' if article.profit and article.profit < 0 else '') }}">
         <td>Gewinn</td><td class="num">{{ article.profit | eur if article.profit is not none else '– (noch nicht verkauft)' }}</td>
       </tr>
+      {% if article.margin is not none %}
+      <tr><td>Marge</td><td class="num">{{ article.margin }} %</td></tr>
+      {% endif %}
     </table>
   </section>
 
@@ -70,6 +90,27 @@
       </tr>
     </table>
   </section>
+
+  {% if article.status == 'Verkauft' or article.buyer_name or article.tracking_number %}
+  <section class="card">
+    <h2>Käufer & Versand</h2>
+    <table class="kv">
+      <tr><td>Verkauft über</td><td>{{ article.sale_platform or '–' }}</td></tr>
+      <tr><td>Käufer</td><td>{{ article.buyer_name or '–' }}</td></tr>
+      <tr><td>Zahlungsart</td><td>{{ article.payment_method or '–' }}</td></tr>
+      <tr><td>Bestellt am</td><td>{{ article.order_date | date }}</td></tr>
+      <tr><td>Versendet am</td><td>{{ article.shipped_at | date }}</td></tr>
+      <tr>
+        <td>Sendung</td>
+        <td>
+          {% if article.tracking_number %}
+            {{ article.tracking_carrier }} {{ article.tracking_number }}
+          {% else %}<span class="muted">–</span>{% endif %}
+        </td>
+      </tr>
+    </table>
+  </section>
+  {% endif %}
 
   {% if article.description %}
   <section class="card">

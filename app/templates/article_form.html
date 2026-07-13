@@ -33,6 +33,9 @@
         </select>
       </label>
     </div>
+    <label>Tags <span class="muted">(kommagetrennt, z.B. Apple, Retro, Konvolut)</span>
+      <input type="text" name="tags" value="{{ article.tags if article else '' }}">
+    </label>
     <label>Beschreibung
       <textarea name="description" rows="4">{{ article.description if article else '' }}</textarea>
     </label>
@@ -56,8 +59,15 @@
     </div>
     <div class="row">
       <label>Versandart
-        <input type="text" name="shipping_method" value="{{ article.shipping_method if article else '' }}"
-               placeholder="z.B. DHL Paket, Hermes S…">
+        <select name="shipping_method">
+          <option value="">– bitte wählen –</option>
+          {% for m in shipping_methods %}
+          <option value="{{ m }}" {{ 'selected' if article and article.shipping_method == m else '' }}>{{ m }}</option>
+          {% endfor %}
+          {% if article and article.shipping_method and article.shipping_method not in shipping_methods %}
+          <option value="{{ article.shipping_method }}" selected>{{ article.shipping_method }}</option>
+          {% endif %}
+        </select>
       </label>
       <label>Versandkosten
         <input type="number" step="0.01" name="shipping_cost"
@@ -91,6 +101,44 @@
     </label>
     <label>Kleinanzeigen-Link
       <input type="url" name="kleinanzeigen_url" value="{{ article.kleinanzeigen_url if article else '' }}" placeholder="https://www.kleinanzeigen.de/s-anzeige/…">
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Käufer & Versandabwicklung <span class="muted">(bei Verkauf)</span></legend>
+    <div class="row">
+      <label>Verkauft über
+        <select name="sale_platform">
+          <option value="">–</option>
+          {% for p in sale_platforms %}
+          <option value="{{ p }}" {{ 'selected' if article and article.sale_platform == p else '' }}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Käufer
+        <input type="text" name="buyer_name" value="{{ article.buyer_name if article else '' }}">
+      </label>
+      <label>Zahlungsart
+        <input type="text" name="payment_method" value="{{ article.payment_method if article else '' }}"
+               placeholder="z.B. PayPal, Überweisung, bar">
+      </label>
+    </div>
+    <div class="row">
+      <label>Bestelldatum
+        <input type="date" name="order_date"
+               value="{{ article.order_date.strftime('%Y-%m-%d') if article and article.order_date else '' }}">
+      </label>
+      <label>Versendet am
+        <input type="date" name="shipped_at"
+               value="{{ article.shipped_at.strftime('%Y-%m-%d') if article and article.shipped_at else '' }}">
+      </label>
+      <label>Versanddienstleister
+        <input type="text" name="tracking_carrier" value="{{ article.tracking_carrier if article else '' }}"
+               placeholder="z.B. DHL">
+      </label>
+    </div>
+    <label>Trackingnummer
+      <input type="text" name="tracking_number" value="{{ article.tracking_number if article else '' }}">
     </label>
   </fieldset>
 

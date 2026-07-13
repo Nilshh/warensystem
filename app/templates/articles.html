@@ -14,9 +14,26 @@
     <option value="{{ s }}" {{ 'selected' if s == active_status else '' }}>{{ s }}</option>
     {% endfor %}
   </select>
+  <input type="hidden" name="sort" value="{{ sort }}">
+  <input type="hidden" name="dir" value="{{ dir }}">
   <button class="btn" type="submit">Filtern</button>
   <a class="btn btn-ghost" href="/articles">Zurücksetzen</a>
 </form>
+
+{% if active_tag %}
+<p class="filter-note">Gefiltert nach Tag: <span class="tag chip">{{ active_tag }}</span>
+  <a href="/articles?q={{ q }}&status={{ active_status }}&sort={{ sort }}&dir={{ dir }}">✕ entfernen</a></p>
+{% endif %}
+
+{% set base = '/articles?q=' ~ q ~ '&status=' ~ active_status ~ '&tag=' ~ active_tag %}
+{% macro sorthead(col, label, cls='') %}
+  {% set newdir = 'asc' if (sort == col and dir == 'desc') else 'desc' %}
+  <th class="{{ cls }} sortable">
+    <a href="{{ base }}&sort={{ col }}&dir={{ newdir }}">
+      {{ label }}{% if sort == col %} <span class="arrow">{{ '▲' if dir == 'asc' else '▼' }}</span>{% endif %}
+    </a>
+  </th>
+{% endmacro %}
 
 {% if articles %}
 <div class="table-wrap">
@@ -24,10 +41,10 @@
   <thead>
     <tr>
       <th>Bild</th>
-      <th>Titel</th>
-      <th>Status</th>
-      <th class="num">Angebot</th>
-      <th class="num">Verkauft</th>
+      {{ sorthead('title', 'Titel') }}
+      {{ sorthead('status', 'Status') }}
+      {{ sorthead('listing_price', 'Angebot', 'num') }}
+      {{ sorthead('sold_price', 'Verkauft', 'num') }}
       <th class="num">Gewinn</th>
       <th>Plattformen</th>
     </tr>
@@ -45,6 +62,11 @@
       <td>
         <strong>{{ a.title }}</strong>
         {% if a.category %}<br><span class="muted">{{ a.category }}</span>{% endif %}
+        {% if a.tag_list %}
+        <div class="row-tags">
+          {% for t in a.tag_list %}<span class="tag chip sm">{{ t }}</span>{% endfor %}
+        </div>
+        {% endif %}
       </td>
       <td><span class="badge status-{{ a.status | lower }}">{{ a.status }}</span></td>
       <td class="num">{{ a.listing_price | eur }}</td>

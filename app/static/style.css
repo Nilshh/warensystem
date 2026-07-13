@@ -143,9 +143,60 @@ table.kv tr.total td { font-weight: 700; font-size: 1rem; padding-top: .7rem; bo
 .form .row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
 .form-actions { display: flex; gap: .6rem; }
 
+/* Tags / Chips */
+.tag.chip { background: #eef1f5; color: #4a5261; border: 1px solid #e2e6ec; }
+.tag.chip:hover { text-decoration: none; background: #e4e8ef; }
+.tag.chip.sm { font-size: .68rem; padding: .1rem .4rem; }
+.tag-row, .row-tags { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .4rem; }
+.tag-row { margin: -.5rem 0 1rem; }
+.filter-note { color: var(--muted); font-size: .9rem; margin: -.5rem 0 1rem; }
+
+/* Sortierbare Spalten */
+th.sortable a { color: var(--muted); display: inline-flex; gap: .25rem; align-items: center; }
+th.sortable a:hover { color: var(--text); text-decoration: none; }
+th.sortable .arrow { font-size: .7rem; color: var(--primary); }
+
+/* Jahresauswahl */
+.yearpick select { padding: .45rem .6rem; border: 1px solid var(--border); border-radius: 8px; font-size: .9rem; }
+
+/* Diagramm */
+:root { --series-umsatz: #2a78d6; --series-gewinn: #1baf7a; }
+.chart-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
+.legend { display: flex; gap: 1rem; }
+.legend-item { display: inline-flex; align-items: center; gap: .4rem; font-size: .82rem; color: var(--text); }
+.swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.swatch.s-umsatz { background: var(--series-umsatz); }
+.swatch.s-gewinn { background: var(--series-gewinn); }
+
+.barchart {
+  display: flex; align-items: flex-end; gap: .5rem;
+  height: 180px; padding-top: 1rem; margin-top: .5rem;
+  border-bottom: 2px solid var(--border);
+}
+.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; }
+.bars { display: flex; align-items: flex-end; gap: 3px; height: 100%; width: 100%; justify-content: center; }
+.bar { width: 46%; max-width: 26px; border-radius: 4px 4px 0 0; position: relative; min-height: 2px; transition: opacity .15s; }
+.bar:hover { opacity: .82; }
+.bar.umsatz { background: var(--series-umsatz); }
+.bar.gewinn { background: var(--series-gewinn); }
+.bar-val { position: absolute; top: -1.05rem; left: 50%; transform: translateX(-50%); font-size: .6rem; color: var(--muted); white-space: nowrap; }
+.bar-val.neg { color: var(--red); }
+.bar-label { margin-top: .35rem; font-size: .72rem; color: var(--muted); }
+
+.table-toggle { margin-top: 1rem; }
+.table-toggle summary { cursor: pointer; color: var(--primary); font-size: .88rem; }
+table.data.compact { margin-top: .75rem; }
+table.data.compact th, table.data.compact td { padding: .4rem .6rem; }
+
+/* Galerie: Hauptbild */
+.gallery-item.is-main img { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary); }
+.main-badge { position: absolute; bottom: 4px; left: 4px; background: var(--primary); color: #fff; font-size: .6rem; padding: .1rem .35rem; border-radius: 4px; }
+.img-main { position: absolute; top: 4px; left: 4px; background: rgba(0,0,0,.6); color: #ffd54a; border: none; border-radius: 50%; width: 22px; height: 22px; cursor: pointer; font-size: .7rem; }
+
 @media (max-width: 720px) {
   .detail-grid { grid-template-columns: 1fr; }
   .form .row { grid-template-columns: 1fr; }
   .topbar { padding: .75rem 1rem; }
   .container { padding: 0 1rem; }
+  .barchart { height: 140px; }
 }
