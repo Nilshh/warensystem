@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}{{ article.title }} · Warenwirtschaft{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <a class="muted" href="/articles">← Zurück zur Liste</a>
+    <h1>{{ article.title }}</h1>
+    <span class="badge status-{{ article.status | lower }}">{{ article.status }}</span>
+    {% if article.category %}<span class="muted">· {{ article.category }}</span>{% endif %}
+    {% if article.condition %}<span class="muted">· {{ article.condition }}</span>{% endif %}
+  </div>
+  <div class="actions">
+    <a class="btn" href="/articles/{{ article.id }}/edit">Bearbeiten</a>
+    <form method="post" action="/articles/{{ article.id }}/delete"
+          onsubmit="return confirm('Artikel wirklich löschen?')" style="display:inline">
+      <button class="btn btn-danger" type="submit">Löschen</button>
+    </form>
+  </div>
+</div>
+
+<div class="detail-grid">
+  <section class="card">
+    <h2>Bilder</h2>
+    <div class="gallery">
+      {% for img in article.images %}
+      <div class="gallery-item">
+        <img src="/uploads/{{ img.filename }}" alt="">
+        <form method="post" action="/articles/{{ article.id }}/images/{{ img.id }}/delete">
+          <button class="img-del" type="submit" title="Bild löschen">✕</button>
+        </form>
+      </div>
+      {% else %}
+      <p class="muted">Noch keine Bilder.</p>
+      {% endfor %}
+    </div>
+    <form method="post" action="/articles/{{ article.id }}/images"
+          enctype="multipart/form-data" class="upload">
+      <input type="file" name="file" accept="image/*" required>
+      <button class="btn btn-sm" type="submit">Hochladen</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Wirtschaftlichkeit</h2>
+    <table class="kv">
+      <tr><td>Einkaufskosten</td><td class="num">{{ article.purchase_cost | eur }}</td></tr>
+      <tr><td>Angebotspreis</td><td class="num">{{ article.listing_price | eur }}</td></tr>
+      <tr><td>Verkaufspreis</td><td class="num">{{ article.sold_price | eur if article.status == 'Verkauft' else '–' }}</td></tr>
+      <tr><td>Versand ({{ article.shipping_method or '—' }})</td><td class="num">{{ article.shipping_cost | eur }}</td></tr>
+      <tr><td>Gebühren</td><td class="num">{{ article.fees | eur }}</td></tr>
+      <tr class="total {{ 'positive' if article.profit and article.profit >= 0 else ('negative' if article.profit and article.profit < 0 else '') }}">
+        <td>Gewinn</td><td class="num">{{ article.profit | eur if article.profit is not none else '– (noch nicht verkauft)' }}</td>
+      </tr>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Plattformen</h2>
+    <table class="kv">
+      <tr>
+        <td>eBay {{ '✓ angeboten' if article.offered_ebay else '' }}</td>
+        <td>{% if article.ebay_url %}<a href="{{ article.ebay_url }}" target="_blank">Anzeige öffnen ↗</a>{% else %}<span class="muted">kein Link</span>{% endif %}</td>
+      </tr>
+      {% if article.ebay_item_id %}
+      <tr><td>eBay Artikelnr.</td><td>{{ article.ebay_item_id }}</td></tr>
+      {% endif %}
+      <tr>
+        <td>Kleinanzeigen {{ '✓ angeboten' if article.offered_kleinanzeigen else '' }}</td>
+        <td>{% if article.kleinanzeigen_url %}<a href="{{ article.kleinanzeigen_url }}" target="_blank">Anzeige öffnen ↗</a>{% else %}<span class="muted">kein Link</span>{% endif %}</td>
+      </tr>
+    </table>
+  </section>
+
+  {% if article.description %}
+  <section class="card">
+    <h2>Beschreibung</h2>
+    <p class="desc">{{ article.description }}</p>
+  </section>
+  {% endif %}
+
+  <section class="card">
+    <h2>Verlauf</h2>
+    <table class="kv">
+      <tr><td>Angelegt</td><td>{{ article.created_at | date }}</td></tr>
+      <tr><td>Zuletzt geändert</td><td>{{ article.updated_at | date }}</td></tr>
+      <tr><td>Verkauft am</td><td>{{ article.sold_at | date }}</td></tr>
+    </table>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,19 @@
+services:
+  warensystem:
+    build: .
+    container_name: warensystem
+    ports:
+      - "8000:8000"
+    volumes:
+      # DB + hochgeladene Bilder bleiben auf dem Host erhalten
+      - ./data:/data
+    environment:
+      - DATA_DIR=/data
+      # Standard eBay-Gebühr in % (nur als Vorschlag im Formular)
+      - EBAY_FEE_PERCENT=11.0
+      # eBay-API — erst ausfüllen, wenn Developer-Account vorhanden ist.
+      # Solange leer, bleibt die Sync-Funktion deaktiviert.
+      - EBAY_CLIENT_ID=
+      - EBAY_CLIENT_SECRET=
+      - EBAY_REFRESH_TOKEN=
+    restart: unless-stopped

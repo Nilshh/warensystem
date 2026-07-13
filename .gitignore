@@ -1,0 +1,9 @@
+# Laufzeitdaten (DB + hochgeladene Bilder)
+/data/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.db

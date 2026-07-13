@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · Warenwirtschaft{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+
+<section class="cards">
+  <div class="card kpi">
+    <span class="kpi-label">Umsatz (verkauft)</span>
+    <span class="kpi-value">{{ umsatz | eur }}</span>
+    <span class="kpi-sub">{{ verkauft_anzahl }} Artikel verkauft</span>
+  </div>
+  <div class="card kpi">
+    <span class="kpi-label">Kosten (verkauft)</span>
+    <span class="kpi-value">{{ kosten | eur }}</span>
+    <span class="kpi-sub">Einkauf + Versand + Gebühren</span>
+  </div>
+  <div class="card kpi {{ 'positive' if gewinn >= 0 else 'negative' }}">
+    <span class="kpi-label">Gewinn</span>
+    <span class="kpi-value">{{ gewinn | eur }}</span>
+    <span class="kpi-sub">Umsatz − Kosten</span>
+  </div>
+  <div class="card kpi">
+    <span class="kpi-label">Offen im Angebot</span>
+    <span class="kpi-value">{{ offen_anzahl }}</span>
+    <span class="kpi-sub">Pot. Umsatz {{ potenzieller_umsatz | eur }}</span>
+  </div>
+  <div class="card kpi">
+    <span class="kpi-label">Gebundenes Kapital</span>
+    <span class="kpi-value">{{ gebundenes_kapital | eur }}</span>
+    <span class="kpi-sub">Einkauf offener Artikel</span>
+  </div>
+  <div class="card kpi">
+    <span class="kpi-label">Artikel gesamt</span>
+    <span class="kpi-value">{{ total }}</span>
+    <span class="kpi-sub">alle Status</span>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Status-Übersicht</h2>
+  <div class="status-grid">
+    {% for status, count in status_counts.items() %}
+    <a class="status-chip status-{{ status | lower }}" href="/articles?status={{ status }}">
+      <span class="status-count">{{ count }}</span>
+      <span class="status-name">{{ status }}</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="card">
+  <h2>Werkzeuge</h2>
+  <div class="toolbar">
+    <a class="btn" href="/export.csv">⬇ CSV-Export</a>
+    {% if ebay_configured %}
+      <form method="post" action="/ebay/sync" style="display:inline">
+        <button class="btn" type="submit">🔄 eBay synchronisieren</button>
+      </form>
+    {% else %}
+      <span class="hint">eBay-Sync inaktiv — Zugangsdaten in <code>docker-compose.yml</code> hinterlegen.</span>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Artikel bearbeiten' if article else 'Neuer Artikel' }} · Warenwirtschaft{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ 'Artikel bearbeiten' if article else 'Neuer Artikel' }}</h1>
+  {% if article %}<a class="btn btn-ghost" href="/articles/{{ article.id }}">Abbrechen</a>{% endif %}
+</div>
+
+<form method="post"
+      action="{{ ('/articles/' ~ article.id ~ '/edit') if article else '/articles/new' }}"
+      class="form">
+
+  <fieldset>
+    <legend>Allgemein</legend>
+    <label>Titel *
+      <input type="text" name="title" required value="{{ article.title if article else '' }}">
+    </label>
+    <div class="row">
+      <label>Kategorie
+        <input type="text" name="category" value="{{ article.category if article else '' }}">
+      </label>
+      <label>Zustand
+        <input list="conditions" name="condition" value="{{ article.condition if article else '' }}">
+        <datalist id="conditions">
+          {% for c in conditions %}<option value="{{ c }}">{% endfor %}
+        </datalist>
+      </label>
+      <label>Status
+        <select name="status">
+          {% for s in statuses %}
+          <option value="{{ s }}" {{ 'selected' if article and article.status == s else '' }}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <label>Beschreibung
+      <textarea name="description" rows="4">{{ article.description if article else '' }}</textarea>
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Preise & Kosten (€)</legend>
+    <div class="row">
+      <label>Einkaufskosten
+        <input type="number" step="0.01" name="purchase_cost" id="purchase_cost"
+               value="{{ '%.2f'|format(article.purchase_cost) if article else '' }}">
+      </label>
+      <label>Angebotspreis
+        <input type="number" step="0.01" name="listing_price" id="listing_price"
+               value="{{ '%.2f'|format(article.listing_price) if article else '' }}">
+      </label>
+      <label>Verkaufspreis
+        <input type="number" step="0.01" name="sold_price" id="sold_price"
+               value="{{ '%.2f'|format(article.sold_price) if article else '' }}">
+      </label>
+    </div>
+    <div class="row">
+      <label>Versandart
+        <input type="text" name="shipping_method" value="{{ article.shipping_method if article else '' }}"
+               placeholder="z.B. DHL Paket, Hermes S…">
+      </label>
+      <label>Versandkosten
+        <input type="number" step="0.01" name="shipping_cost"
+               value="{{ '%.2f'|format(article.shipping_cost) if article else '' }}">
+      </label>
+      <label>Gebühren
+        <input type="number" step="0.01" name="fees" id="fees"
+               value="{{ '%.2f'|format(article.fees) if article else '' }}">
+        <button type="button" class="link-btn" id="calc-fee">≈ {{ fee_percent }}% berechnen</button>
+      </label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Plattformen</legend>
+    <div class="row">
+      <label class="check">
+        <input type="checkbox" name="offered_ebay" {{ 'checked' if article and article.offered_ebay else '' }}>
+        Bei eBay angeboten
+      </label>
+      <label class="check">
+        <input type="checkbox" name="offered_kleinanzeigen" {{ 'checked' if article and article.offered_kleinanzeigen else '' }}>
+        Bei Kleinanzeigen angeboten
+      </label>
+    </div>
+    <label>eBay-Link
+      <input type="url" name="ebay_url" value="{{ article.ebay_url if article else '' }}" placeholder="https://www.ebay.de/itm/…">
+    </label>
+    <label>eBay Artikelnummer <span class="muted">(optional, für spätere API-Synchronisierung)</span>
+      <input type="text" name="ebay_item_id" value="{{ article.ebay_item_id if article else '' }}">
+    </label>
+    <label>Kleinanzeigen-Link
+      <input type="url" name="kleinanzeigen_url" value="{{ article.kleinanzeigen_url if article else '' }}" placeholder="https://www.kleinanzeigen.de/s-anzeige/…">
+    </label>
+  </fieldset>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Speichern</button>
+    <a class="btn btn-ghost" href="{{ ('/articles/' ~ article.id) if article else '/articles' }}">Abbrechen</a>
+  </div>
+</form>
+
+<script>
+  // Gebühren-Schätzung: Prozent vom Verkaufs- bzw. Angebotspreis
+  document.getElementById('calc-fee').addEventListener('click', function () {
+    var percent = {{ fee_percent }};
+    var sold = parseFloat(document.getElementById('sold_price').value) || 0;
+    var listing = parseFloat(document.getElementById('listing_price').value) || 0;
+    var base = sold > 0 ? sold : listing;
+    document.getElementById('fees').value = (base * percent / 100).toFixed(2);
+  });
+</script>
+{% endblock %}
