@@ -46,6 +46,15 @@ Die Daten (SQLite-DB + hochgeladene Bilder) liegen im Ordner `./data` und bleibe
    ```
 4. Aufruf über die LAN-IP des Containers: `http://<container-ip>:8000`
 
+### Updaten / neu deployen
+
+Für spätere Updates gibt es `deploy.sh` — holt die neueste Version, baut den
+Container neu, räumt alte Images auf und prüft per Health-Check:
+
+```bash
+./deploy.sh
+```
+
 > Es gibt bewusst **kein Login** (nur im LAN gedacht). Wenn du es später von
 > außen erreichbar machst, unbedingt einen Reverse-Proxy mit Authentifizierung
 > davorsetzen.
