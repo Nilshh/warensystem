@@ -21,7 +21,9 @@ LXC-Container im Proxmox-Cluster. Bedienung über die **Web-UI**.
 - **Artikelliste** mit Suche, Status-/Tag-Filter und **sortierbaren Spalten**
 - **Artikel duplizieren** (als Vorlage)
 - **CSV-Export** (Excel-kompatibel, optional pro Jahr — für Buchhaltung/Steuer)
-- eBay-API im Code **vorbereitet** (siehe `app/ebay.py`), Kleinanzeigen bleibt manuell
+- **Import per eBay-Link** (Browse API): Titel, Preis, Zustand, Beschreibung und Bilder
+  aus einem Inserat übernehmen — aktiv, sobald App-Keys hinterlegt sind
+- eBay-Verkaufs-Sync im Code **vorbereitet** (siehe `app/ebay.py`), Kleinanzeigen bleibt manuell
 
 Secrets/Konfiguration liegen in einer nicht eingecheckten `.env` (siehe `.env.example`).
 Das Datenbankschema wird beim Start automatisch um neue Felder ergänzt
@@ -74,17 +76,36 @@ Container neu, räumt alte Images auf und prüft per Health-Check:
 Es reicht, den Ordner `./data` zu sichern (enthält DB + Bilder), z.B. per
 Proxmox-Backup des Containers oder einem `tar`/`rsync`-Job.
 
-## eBay-API später aktivieren
+## eBay-Import aktivieren (per Link)
 
-Das Datenmodell speichert bereits `ebay_item_id` und `ebay_url` pro Artikel.
-Sobald du einen eBay-Developer-Account hast:
+Für den Import per eBay-Link brauchst du einen kostenlosen
+**eBay-Developer-Account** (developer.ebay.com). Der Account ist getrennt vom
+normalen eBay-Konto — man registriert sich dort einmalig.
 
-1. Zugangsdaten in `docker-compose.yml` unter `environment` eintragen
-   (`EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`, `EBAY_REFRESH_TOKEN`).
-2. `sync_orders()` in [`app/ebay.py`](app/ebay.py) implementieren
-   (eBay Sell Fulfillment API via OAuth).
+1. Unter **Application Keysets** ein **Production**-Keyset erzeugen.
+2. **App ID (Client ID)** und **Cert ID (Client Secret)** in die `.env` eintragen:
+   ```
+   EBAY_CLIENT_ID=DeineAppId
+   EBAY_CLIENT_SECRET=DeinCertId
+   ```
+3. Container neu starten (`./deploy.sh` oder `docker compose up -d`).
 
-Solange keine Zugangsdaten gesetzt sind, ist die Sync-Funktion in der UI inaktiv.
+Danach erscheint im Formular „Neuer Artikel" oben eine Box **Aus eBay
+importieren**: Link oder Artikelnummer einfügen → Titel, Preis, Zustand,
+Beschreibung und Bilder werden übernommen (als Entwurf zum Prüfen).
+
+Der Import nutzt nur einen **App-Token** (Client-Credentials) — kein
+Nutzer-Login. Solange keine Keys gesetzt sind, ist die Box inaktiv.
+
+Zum Testen kann per `.env` auf die Sandbox umgestellt werden
+(`EBAY_ENV=sandbox` mit Sandbox-Keys).
+
+## Verkaufs-Synchronisierung (später)
+
+Die vollautomatische Übernahme verkaufter Artikel (Sell API) benötigt zusätzlich
+einen **Nutzer-Refresh-Token** (`EBAY_REFRESH_TOKEN`) und die Implementierung von
+`sync_orders()` in [`app/ebay.py`](app/ebay.py). Solange dieser Token fehlt,
+bleibt die Sync-Schaltfläche inaktiv.
 
 ## Technik
 

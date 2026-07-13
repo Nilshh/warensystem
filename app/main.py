@@ -1,6 +1,7 @@
 """Warenwirtschaftssystem — FastAPI-App."""
 import csv
 import io
+import urllib.parse
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -253,7 +254,7 @@ def list_articles(
 # ---------------------------------------------------------------------------
 # Artikel anlegen
 # ---------------------------------------------------------------------------
-def _form_context(request: Request, article: Article | None) -> dict:
+def _form_context(request: Request, article: Article | None, error: str = "") -> dict:
     return {
         "request": request,
         "article": article,
@@ -262,12 +263,14 @@ def _form_context(request: Request, article: Article | None) -> dict:
         "shipping_methods": SHIPPING_METHODS,
         "sale_platforms": SALE_PLATFORMS,
         "fee_percent": config.DEFAULT_EBAY_FEE_PERCENT,
+        "ebay_import_enabled": ebay.import_supported(),
+        "error": error,
     }
 
 
 @app.get("/articles/new", response_class=HTMLResponse)
-def new_article(request: Request):
-    return templates.TemplateResponse("article_form.html", _form_context(request, None))
+def new_article(request: Request, error: str = ""):
+    return templates.TemplateResponse("article_form.html", _form_context(request, None, error))
 
 
 @app.post("/articles/new")
@@ -278,6 +281,43 @@ async def create_article(request: Request, db: Session = Depends(get_db)):
     db.add(article)
     db.commit()
     return RedirectResponse(f"/articles/{article.id}", status_code=303)
+
+
+@app.post("/articles/import-ebay")
+async def import_from_ebay(
+    ebay_url: str = Form(""), db: Session = Depends(get_db)
+):
+    """Legt aus einem eBay-Link einen Entwurf an (Browse API) und lädt Bilder."""
+    try:
+        item = ebay.fetch_item(ebay_url)
+    except ebay.EbayError as e:
+        msg = urllib.parse.quote(str(e))
+        return RedirectResponse(f"/articles/new?error={msg}", status_code=303)
+
+    article = Article(
+        title=item["title"] or "eBay-Import",
+        description=item["description"],
+        condition=item["condition"],
+        status="Entwurf",
+        listing_price=item["price"],
+        ebay_url=item["item_web_url"] or ebay_url.strip(),
+        ebay_item_id=item["ebay_item_id"],
+        offered_ebay=True,
+    )
+    db.add(article)
+    db.flush()  # article.id verfügbar machen
+
+    # Bilder herunterladen
+    for pos, img_url in enumerate(item["image_urls"]):
+        ext = Path(urllib.parse.urlparse(img_url).path).suffix.lower()
+        if ext not in ALLOWED_IMAGE_EXT:
+            ext = ".jpg"
+        filename = f"{uuid.uuid4().hex}{ext}"
+        if ebay.download_image(img_url, config.UPLOAD_DIR / filename):
+            db.add(ArticleImage(article_id=article.id, filename=filename, position=pos))
+
+    db.commit()
+    return RedirectResponse(f"/articles/{article.id}/edit", status_code=303)
 
 
 # ---------------------------------------------------------------------------

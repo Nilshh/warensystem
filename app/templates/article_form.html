@@ -6,6 +6,29 @@
   {% if article %}<a class="btn btn-ghost" href="/articles/{{ article.id }}">Abbrechen</a>{% endif %}
 </div>
 
+{% if error %}
+<div class="banner error">⚠ {{ error }}</div>
+{% endif %}
+
+{% if not article %}
+  {% if ebay_import_enabled %}
+  <div class="card import-box">
+    <h2>Aus eBay importieren</h2>
+    <form method="post" action="/articles/import-ebay" class="import-form">
+      <input type="url" name="ebay_url" required
+             placeholder="eBay-Link oder Artikelnummer einfügen…">
+      <button class="btn btn-primary" type="submit">Importieren</button>
+    </form>
+    <p class="muted">Titel, Preis, Zustand, Beschreibung und Bilder werden übernommen. Danach prüfen &amp; speichern.</p>
+  </div>
+  {% else %}
+  <div class="card import-box disabled">
+    <h2>Aus eBay importieren</h2>
+    <p class="muted">Inaktiv — hinterlege <code>EBAY_CLIENT_ID</code> und <code>EBAY_CLIENT_SECRET</code> in der <code>.env</code>, um Inserate per Link zu importieren.</p>
+  </div>
+  {% endif %}
+{% endif %}
+
 <form method="post"
       action="{{ ('/articles/' ~ article.id ~ '/edit') if article else '/articles/new' }}"
       class="form">

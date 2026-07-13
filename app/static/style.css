@@ -143,6 +143,16 @@ table.kv tr.total td { font-weight: 700; font-size: 1rem; padding-top: .7rem; bo
 .form .row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
 .form-actions { display: flex; gap: .6rem; }
 
+/* Banner */
+.banner { padding: .7rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: .9rem; }
+.banner.error { background: #fbeaea; color: #b02a2a; border: 1px solid #f0cccc; }
+
+/* eBay-Import-Box */
+.import-box { border-left: 3px solid var(--primary); }
+.import-box.disabled { border-left-color: var(--border); opacity: .85; }
+.import-form { display: flex; gap: .5rem; margin-bottom: .5rem; }
+.import-form input { flex: 1; padding: .55rem .65rem; border: 1px solid var(--border); border-radius: 8px; font-size: .92rem; }
+
 /* Tags / Chips */
 .tag.chip { background: #eef1f5; color: #4a5261; border: 1px solid #e2e6ec; }
 .tag.chip:hover { text-decoration: none; background: #e4e8ef; }
