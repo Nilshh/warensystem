@@ -20,6 +20,16 @@
       <button class="btn btn-primary" type="submit">Importieren</button>
     </form>
     <p class="muted">Titel, Preis, Zustand, Beschreibung und Bilder werden übernommen. Danach prüfen &amp; speichern.</p>
+
+    <details class="bulk-import">
+      <summary>Mehrere auf einmal importieren</summary>
+      <form method="post" action="/articles/import-ebay-bulk">
+        <textarea name="ebay_urls" rows="6"
+                  placeholder="Einen eBay-Link (oder Artikelnummer) pro Zeile einfügen…"></textarea>
+        <button class="btn btn-primary" type="submit">Alle importieren</button>
+        <p class="muted">Bereits importierte Artikel (gleiche Artikelnummer) werden übersprungen. Max. 100 pro Durchgang.</p>
+      </form>
+    </details>
   </div>
   {% else %}
   <div class="card import-box disabled">

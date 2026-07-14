@@ -152,6 +152,10 @@ table.kv tr.total td { font-weight: 700; font-size: 1rem; padding-top: .7rem; bo
 .import-box.disabled { border-left-color: var(--border); opacity: .85; }
 .import-form { display: flex; gap: .5rem; margin-bottom: .5rem; }
 .import-form input { flex: 1; padding: .55rem .65rem; border: 1px solid var(--border); border-radius: 8px; font-size: .92rem; }
+.bulk-import { margin-top: .75rem; border-top: 1px solid var(--border); padding-top: .75rem; }
+.bulk-import summary { cursor: pointer; color: var(--primary); font-size: .9rem; }
+.bulk-import textarea { width: 100%; margin: .6rem 0; padding: .55rem .65rem; border: 1px solid var(--border); border-radius: 8px; font-family: ui-monospace, monospace; font-size: .85rem; }
+td.mono, .mono { font-family: ui-monospace, monospace; font-size: .8rem; word-break: break-all; }
 
 /* Tags / Chips */
 .tag.chip { background: #eef1f5; color: #4a5261; border: 1px solid #e2e6ec; }

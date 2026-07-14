@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Import-Ergebnis · Warenwirtschaft{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Import-Ergebnis</h1>
+  <div class="actions">
+    <a class="btn" href="/articles/new">Weitere importieren</a>
+    <a class="btn btn-primary" href="/articles">Zur Artikelliste</a>
+  </div>
+</div>
+
+<section class="cards">
+  <div class="card kpi positive">
+    <span class="kpi-label">Importiert</span>
+    <span class="kpi-value">{{ imported }}</span>
+  </div>
+  <div class="card kpi">
+    <span class="kpi-label">Übersprungen</span>
+    <span class="kpi-value">{{ skipped }}</span>
+    <span class="kpi-sub">bereits vorhanden</span>
+  </div>
+  <div class="card kpi {{ 'negative' if failed else '' }}">
+    <span class="kpi-label">Fehlgeschlagen</span>
+    <span class="kpi-value">{{ failed }}</span>
+  </div>
+</section>
+
+{% if truncated %}
+<div class="banner error">⚠ Es wurden nur die ersten {{ limit }} Zeilen verarbeitet. Bitte den Rest in einem weiteren Durchgang importieren.</div>
+{% endif %}
+
+<div class="table-wrap">
+<table class="data">
+  <thead>
+    <tr><th>Status</th><th>Ergebnis</th><th>Eingabe</th></tr>
+  </thead>
+  <tbody>
+    {% for r in results %}
+    <tr>
+      <td>
+        {% if r.status == 'ok' %}<span class="badge status-verkauft">OK</span>
+        {% elif r.status == 'skipped' %}<span class="badge status-reserviert">Übersprungen</span>
+        {% else %}<span class="badge" style="background:#fbeaea;color:#b02a2a">Fehler</span>{% endif %}
+      </td>
+      <td>
+        {% if r.status == 'ok' %}<a href="/articles/{{ r.article_id }}/edit">{{ r.message }}</a>
+        {% else %}{{ r.message }}{% endif %}
+      </td>
+      <td class="muted mono">{{ r.input }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

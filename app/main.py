@@ -283,6 +283,34 @@ async def create_article(request: Request, db: Session = Depends(get_db)):
     return RedirectResponse(f"/articles/{article.id}", status_code=303)
 
 
+def _download_item_images(db: Session, article: Article, image_urls: list[str]) -> None:
+    for pos, img_url in enumerate(image_urls):
+        ext = Path(urllib.parse.urlparse(img_url).path).suffix.lower()
+        if ext not in ALLOWED_IMAGE_EXT:
+            ext = ".jpg"
+        filename = f"{uuid.uuid4().hex}{ext}"
+        if ebay.download_image(img_url, config.UPLOAD_DIR / filename):
+            db.add(ArticleImage(article_id=article.id, filename=filename, position=pos))
+
+
+def _create_article_from_item(db: Session, item: dict, fallback_url: str = "") -> Article:
+    """Legt aus einem geladenen eBay-Item einen Entwurf an (inkl. Bilder)."""
+    article = Article(
+        title=item["title"] or "eBay-Import",
+        description=item["description"],
+        condition=item["condition"],
+        status="Entwurf",
+        listing_price=item["price"],
+        ebay_url=item["item_web_url"] or fallback_url.strip(),
+        ebay_item_id=item["ebay_item_id"],
+        offered_ebay=True,
+    )
+    db.add(article)
+    db.flush()  # article.id verfügbar machen
+    _download_item_images(db, article, item["image_urls"])
+    return article
+
+
 @app.post("/articles/import-ebay")
 async def import_from_ebay(
     ebay_url: str = Form(""), db: Session = Depends(get_db)
@@ -294,30 +322,70 @@ async def import_from_ebay(
         msg = urllib.parse.quote(str(e))
         return RedirectResponse(f"/articles/new?error={msg}", status_code=303)
 
-    article = Article(
-        title=item["title"] or "eBay-Import",
-        description=item["description"],
-        condition=item["condition"],
-        status="Entwurf",
-        listing_price=item["price"],
-        ebay_url=item["item_web_url"] or ebay_url.strip(),
-        ebay_item_id=item["ebay_item_id"],
-        offered_ebay=True,
-    )
-    db.add(article)
-    db.flush()  # article.id verfügbar machen
-
-    # Bilder herunterladen
-    for pos, img_url in enumerate(item["image_urls"]):
-        ext = Path(urllib.parse.urlparse(img_url).path).suffix.lower()
-        if ext not in ALLOWED_IMAGE_EXT:
-            ext = ".jpg"
-        filename = f"{uuid.uuid4().hex}{ext}"
-        if ebay.download_image(img_url, config.UPLOAD_DIR / filename):
-            db.add(ArticleImage(article_id=article.id, filename=filename, position=pos))
-
+    article = _create_article_from_item(db, item, ebay_url)
     db.commit()
     return RedirectResponse(f"/articles/{article.id}/edit", status_code=303)
+
+
+# Obergrenze pro Massenimport (schützt vor sehr langen Requests)
+BULK_IMPORT_LIMIT = 100
+
+
+@app.post("/articles/import-ebay-bulk", response_class=HTMLResponse)
+async def import_from_ebay_bulk(
+    request: Request, ebay_urls: str = Form(""), db: Session = Depends(get_db)
+):
+    """Importiert mehrere eBay-Links (einer pro Zeile) in einem Rutsch."""
+    lines = [ln.strip() for ln in ebay_urls.splitlines() if ln.strip()]
+    truncated = len(lines) > BULK_IMPORT_LIMIT
+    lines = lines[:BULK_IMPORT_LIMIT]
+
+    # bereits vorhandene eBay-Artikelnummern (Dedupe)
+    existing = {
+        i for (i,) in db.execute(
+            select(Article.ebay_item_id).where(Article.ebay_item_id != "")
+        )
+    }
+
+    results = []
+    imported = skipped = failed = 0
+    seen_in_batch: set[str] = set()
+
+    for line in lines:
+        item_id = ebay.extract_item_id(line)
+        if item_id and (item_id in existing or item_id in seen_in_batch):
+            skipped += 1
+            results.append({"input": line, "status": "skipped",
+                            "message": f"Bereits vorhanden (Artikelnr. {item_id})"})
+            continue
+        try:
+            item = ebay.fetch_item(line)
+        except ebay.EbayError as e:
+            failed += 1
+            results.append({"input": line, "status": "failed", "message": str(e)})
+            continue
+
+        article = _create_article_from_item(db, item, line)
+        db.flush()
+        seen_in_batch.add(article.ebay_item_id)
+        imported += 1
+        results.append({
+            "input": line, "status": "ok", "message": item["title"] or "Import",
+            "article_id": article.id,
+        })
+
+    db.commit()
+
+    ctx = {
+        "request": request,
+        "results": results,
+        "imported": imported,
+        "skipped": skipped,
+        "failed": failed,
+        "truncated": truncated,
+        "limit": BULK_IMPORT_LIMIT,
+    }
+    return templates.TemplateResponse("import_result.html", ctx)
 
 
 # ---------------------------------------------------------------------------
