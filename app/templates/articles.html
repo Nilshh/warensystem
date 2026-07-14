@@ -25,6 +25,10 @@
   <a href="/articles?q={{ q }}&status={{ active_status }}&sort={{ sort }}&dir={{ dir }}">✕ entfernen</a></p>
 {% endif %}
 
+{% if updated %}
+<div class="banner success">✔ Status von {{ updated }} Artikel{{ 'n' if updated != 1 else '' }} geändert.</div>
+{% endif %}
+
 {% set base = '/articles?q=' ~ q ~ '&status=' ~ active_status ~ '&tag=' ~ active_tag %}
 {% macro sorthead(col, label, cls='') %}
   {% set newdir = 'asc' if (sort == col and dir == 'desc') else 'desc' %}
@@ -36,10 +40,32 @@
 {% endmacro %}
 
 {% if articles %}
+<form method="post" action="/articles/bulk-status" id="bulk-form"
+      onsubmit="return document.querySelectorAll('.rowcheck:checked').length > 0
+                       ? confirm('Status von ' + document.querySelectorAll('.rowcheck:checked').length + ' Artikel(n) ändern?')
+                       : (alert('Bitte zuerst Artikel auswählen.'), false)">
+  {# Filter/Sortierung für den Rücksprung erhalten #}
+  <input type="hidden" name="q" value="{{ q }}">
+  <input type="hidden" name="status" value="{{ active_status }}">
+  <input type="hidden" name="tag" value="{{ active_tag }}">
+  <input type="hidden" name="sort" value="{{ sort }}">
+  <input type="hidden" name="dir" value="{{ dir }}">
+
+  <div class="bulkbar">
+    <span class="bulk-count"><span id="sel-count">0</span> ausgewählt</span>
+    <label>Status setzen:
+      <select name="new_status">
+        {% for s in statuses %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+      </select>
+    </label>
+    <button class="btn btn-primary btn-sm" type="submit">Anwenden</button>
+  </div>
+
 <div class="table-wrap">
 <table class="data">
   <thead>
     <tr>
+      <th class="check-cell"><input type="checkbox" id="select-all" title="Alle auswählen"></th>
       <th>Bild</th>
       {{ sorthead('title', 'Titel') }}
       {{ sorthead('status', 'Status') }}
@@ -52,6 +78,9 @@
   <tbody>
     {% for a in articles %}
     <tr onclick="window.location='/articles/{{ a.id }}'">
+      <td class="check-cell" onclick="event.stopPropagation()">
+        <input type="checkbox" class="rowcheck" name="ids" value="{{ a.id }}">
+      </td>
       <td class="thumb-cell">
         {% if a.images %}
           <img class="thumb" src="/uploads/{{ a.images[0].filename }}" alt="">
@@ -83,6 +112,27 @@
   </tbody>
 </table>
 </div>
+</form>
+
+<script>
+  (function () {
+    var selectAll = document.getElementById('select-all');
+    var checks = Array.prototype.slice.call(document.querySelectorAll('.rowcheck'));
+    var counter = document.getElementById('sel-count');
+    function update() {
+      var n = document.querySelectorAll('.rowcheck:checked').length;
+      counter.textContent = n;
+      selectAll.checked = n > 0 && n === checks.length;
+      selectAll.indeterminate = n > 0 && n < checks.length;
+    }
+    selectAll.addEventListener('change', function () {
+      checks.forEach(function (c) { c.checked = selectAll.checked; });
+      update();
+    });
+    checks.forEach(function (c) { c.addEventListener('change', update); });
+    update();
+  })();
+</script>
 {% else %}
 <div class="empty">
   <p>Noch keine Artikel gefunden.</p>

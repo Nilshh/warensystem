@@ -113,7 +113,11 @@ def apply_form(article: Article, data: dict) -> None:
     article.order_date = parse_date(data.get("order_date"))
     article.shipped_at = parse_date(data.get("shipped_at"))
 
-    # Verkaufsdatum automatisch setzen/entfernen
+    set_status(article, new_status)
+
+
+def set_status(article: Article, new_status: str) -> None:
+    """Setzt den Status und pflegt das Verkaufsdatum automatisch."""
     if new_status == "Verkauft" and article.status != "Verkauft":
         article.sold_at = datetime.now(timezone.utc)
     elif new_status != "Verkauft":
@@ -219,6 +223,7 @@ def list_articles(
     tag: str = "",
     sort: str = "updated_at",
     dir: str = "desc",
+    updated: int = 0,
     db: Session = Depends(get_db),
 ):
     column = SORT_COLUMNS.get(sort, Article.updated_at)
@@ -247,8 +252,37 @@ def list_articles(
         "active_tag": tag,
         "sort": sort,
         "dir": dir,
+        "updated": updated,
     }
     return templates.TemplateResponse("articles.html", ctx)
+
+
+@app.post("/articles/bulk-status")
+async def bulk_status(request: Request, db: Session = Depends(get_db)):
+    """Ändert den Status mehrerer ausgewählter Artikel auf einmal."""
+    form = await request.form()
+    new_status = (form.get("new_status") or "").strip()
+    ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()]
+
+    updated = 0
+    if new_status in STATUSES and ids:
+        articles = db.scalars(select(Article).where(Article.id.in_(ids))).all()
+        for a in articles:
+            set_status(a, new_status)
+            updated += 1
+        db.commit()
+
+    # aktuelle Filter/Sortierung beim Zurückspringen erhalten
+    params = {
+        "q": form.get("q", ""),
+        "status": form.get("status", ""),
+        "tag": form.get("tag", ""),
+        "sort": form.get("sort", "updated_at"),
+        "dir": form.get("dir", "desc"),
+        "updated": updated,
+    }
+    query = urllib.parse.urlencode({k: v for k, v in params.items() if v != ""})
+    return RedirectResponse(f"/articles?{query}", status_code=303)
 
 
 # ---------------------------------------------------------------------------
