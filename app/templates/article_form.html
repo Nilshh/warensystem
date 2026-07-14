@@ -156,6 +156,9 @@
                placeholder="z.B. PayPal, Überweisung, bar">
       </label>
     </div>
+    <label>Lieferadresse <span class="muted">(für den Lieferschein)</span>
+      <textarea name="buyer_address" rows="3" placeholder="Straße Nr.&#10;PLZ Ort">{{ article.buyer_address if article else '' }}</textarea>
+    </label>
     <div class="row">
       <label>Bestelldatum
         <input type="date" name="order_date"

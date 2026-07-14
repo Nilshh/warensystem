@@ -54,6 +54,7 @@ class Article(Base):
     # Käufer- & Versandabwicklung
     sale_platform: Mapped[str] = mapped_column(String(30), default="")   # verkauft über
     buyer_name: Mapped[str] = mapped_column(String(150), default="")
+    buyer_address: Mapped[str] = mapped_column(Text, default="")         # Lieferadresse
     payment_method: Mapped[str] = mapped_column(String(80), default="")
     tracking_carrier: Mapped[str] = mapped_column(String(80), default="")
     tracking_number: Mapped[str] = mapped_column(String(100), default="")

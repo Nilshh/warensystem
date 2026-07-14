@@ -13,6 +13,12 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 # Standard-Gebührensatz von eBay (nur Vorschlag im Formular)
 DEFAULT_EBAY_FEE_PERCENT = float(os.getenv("EBAY_FEE_PERCENT", "11.0"))
 
+# Absenderdaten für Lieferschein/Packzettel
+SELLER_NAME = os.getenv("SELLER_NAME", "")
+SELLER_ADDRESS = os.getenv("SELLER_ADDRESS", "")   # mehrzeilig via \n
+SELLER_EMAIL = os.getenv("SELLER_EMAIL", "")
+SELLER_PHONE = os.getenv("SELLER_PHONE", "")
+
 # eBay-API — für die spätere Anbindung vorbereitet
 EBAY_CLIENT_ID = os.getenv("EBAY_CLIENT_ID", "")
 EBAY_CLIENT_SECRET = os.getenv("EBAY_CLIENT_SECRET", "")

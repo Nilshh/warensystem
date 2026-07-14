@@ -107,6 +107,7 @@ def apply_form(article: Article, data: dict) -> None:
     # Käufer- & Versandabwicklung
     article.sale_platform = (data.get("sale_platform") or "").strip()
     article.buyer_name = (data.get("buyer_name") or "").strip()
+    article.buyer_address = (data.get("buyer_address") or "").strip()
     article.payment_method = (data.get("payment_method") or "").strip()
     article.tracking_carrier = (data.get("tracking_carrier") or "").strip()
     article.tracking_number = (data.get("tracking_number") or "").strip()
@@ -437,6 +438,23 @@ def article_detail(article_id: int, request: Request, db: Session = Depends(get_
     article = _get_article(db, article_id)
     return templates.TemplateResponse(
         "article_detail.html", {"request": request, "article": article}
+    )
+
+
+@app.get("/articles/{article_id}/lieferschein", response_class=HTMLResponse)
+def lieferschein(article_id: int, request: Request, db: Session = Depends(get_db)):
+    """Druckbarer Lieferschein/Packzettel für einen Artikel."""
+    article = _get_article(db, article_id)
+    seller = {
+        "name": config.SELLER_NAME,
+        "address": config.SELLER_ADDRESS.replace("\\n", "\n"),
+        "email": config.SELLER_EMAIL,
+        "phone": config.SELLER_PHONE,
+    }
+    date = article.shipped_at or article.sold_at or datetime.now(timezone.utc)
+    return templates.TemplateResponse(
+        "lieferschein.html",
+        {"request": request, "article": article, "seller": seller, "date": date},
     )
 
 

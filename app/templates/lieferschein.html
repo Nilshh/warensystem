@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lieferschein LS-{{ '%05d' % article.id }}</title>
+  <style>
+    :root { --ink:#1a1a1a; --muted:#666; --line:#ddd; }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: var(--ink);
+           margin: 0; background: #f0f0f0; }
+    .sheet { background: #fff; max-width: 210mm; min-height: 297mm; margin: 1rem auto;
+             padding: 22mm 20mm; box-shadow: 0 2px 12px rgba(0,0,0,.12); }
+    .toolbar { max-width: 210mm; margin: 1rem auto 0; display: flex; gap: .5rem; }
+    .btn { padding: .5rem .9rem; border: 1px solid #ccc; border-radius: 8px; background: #fff;
+           cursor: pointer; font-size: .9rem; text-decoration: none; color: var(--ink); }
+    .btn.primary { background: #2b6cff; border-color: #2b6cff; color: #fff; }
+
+    .head { display: flex; justify-content: space-between; align-items: flex-start; }
+    .sender-line { font-size: .72rem; color: var(--muted); border-bottom: 1px solid var(--line);
+                   padding-bottom: 2px; margin-bottom: 1.5rem; }
+    h1 { font-size: 1.6rem; margin: 0 0 .2rem; }
+    .doc-meta { text-align: right; font-size: .85rem; color: var(--muted); }
+    .doc-meta strong { color: var(--ink); }
+
+    .addresses { display: flex; justify-content: space-between; gap: 2rem; margin: 1.5rem 0 2rem; }
+    .addr h3 { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+               margin: 0 0 .4rem; }
+    .addr .body { white-space: pre-wrap; font-size: .95rem; line-height: 1.45; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: .5rem; }
+    th, td { text-align: left; padding: .55rem .4rem; border-bottom: 1px solid var(--line); font-size: .9rem; }
+    th { border-bottom: 2px solid #bbb; font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+    td.num, th.num { text-align: center; width: 60px; }
+    .artikelnr { color: var(--muted); font-size: .8rem; }
+
+    .ship { margin-top: 1.8rem; font-size: .9rem; }
+    .ship .row { display: flex; gap: .5rem; padding: .2rem 0; }
+    .ship .label { color: var(--muted); min-width: 150px; }
+    .note { margin-top: 2.5rem; font-size: .82rem; color: var(--muted); }
+    .foot { margin-top: 3rem; font-size: .8rem; color: var(--muted); border-top: 1px solid var(--line);
+            padding-top: .6rem; }
+
+    @media print {
+      body { background: #fff; }
+      .toolbar { display: none; }
+      .sheet { box-shadow: none; margin: 0; max-width: none; min-height: auto; padding: 0; }
+      @page { margin: 18mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button class="btn primary" onclick="window.print()">🖨 Drucken / Als PDF speichern</button>
+    <a class="btn" href="/articles/{{ article.id }}">← Zurück</a>
+  </div>
+
+  <div class="sheet">
+    <div class="sender-line">
+      {{ seller.name }}{% if seller.address %} · {{ seller.address.replace('\n', ', ') }}{% endif %}
+    </div>
+
+    <div class="head">
+      <div>
+        <h1>Lieferschein</h1>
+        <div class="artikelnr">Packzettel</div>
+      </div>
+      <div class="doc-meta">
+        <div>Lieferschein-Nr.: <strong>LS-{{ '%05d' % article.id }}</strong></div>
+        <div>Datum: <strong>{{ date.strftime('%d.%m.%Y') }}</strong></div>
+        {% if article.sale_platform %}<div>Plattform: {{ article.sale_platform }}</div>{% endif %}
+      </div>
+    </div>
+
+    <div class="addresses">
+      <div class="addr">
+        <h3>Absender</h3>
+        <div class="body">{% if seller.name %}{{ seller.name }}
+{% endif %}{{ seller.address }}{% if seller.email %}
+{{ seller.email }}{% endif %}{% if seller.phone %}
+{{ seller.phone }}{% endif %}{% if not seller.name and not seller.address %}—{% endif %}</div>
+      </div>
+      <div class="addr">
+        <h3>Empfänger</h3>
+        <div class="body">{% if article.buyer_name %}{{ article.buyer_name }}
+{% endif %}{{ article.buyer_address or ('—' if not article.buyer_name else '') }}</div>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th class="num">Pos.</th><th class="num">Menge</th><th>Artikel</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="num">1</td>
+          <td class="num">1</td>
+          <td>
+            {{ article.title }}
+            {% if article.condition %}<div class="artikelnr">Zustand: {{ article.condition }}</div>{% endif %}
+            {% if article.ebay_item_id %}<div class="artikelnr">eBay-Artikelnr.: {{ article.ebay_item_id }}</div>{% endif %}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="ship">
+      {% if article.shipping_method %}
+      <div class="row"><span class="label">Versandart:</span><span>{{ article.shipping_method }}</span></div>
+      {% endif %}
+      {% if article.tracking_number %}
+      <div class="row"><span class="label">Sendungsnummer:</span><span>{{ article.tracking_carrier }} {{ article.tracking_number }}</span></div>
+      {% endif %}
+    </div>
+
+    <p class="note">Vielen Dank für Ihren Einkauf! Bitte prüfen Sie die Ware bei Erhalt.
+    Bei Fragen erreichen Sie mich über die oben genannten Kontaktdaten.</p>
+
+    <div class="foot">
+      Lieferschein LS-{{ '%05d' % article.id }} · erstellt am {{ date.strftime('%d.%m.%Y') }}
+    </div>
+  </div>
+</body>
+</html>

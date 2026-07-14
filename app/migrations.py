@@ -18,6 +18,7 @@ _EXPECTED = {
         "tags": "VARCHAR(300) DEFAULT ''",
         "sale_platform": "VARCHAR(30) DEFAULT ''",
         "buyer_name": "VARCHAR(150) DEFAULT ''",
+        "buyer_address": "TEXT DEFAULT ''",
         "payment_method": "VARCHAR(80) DEFAULT ''",
         "tracking_carrier": "VARCHAR(80) DEFAULT ''",
         "tracking_number": "VARCHAR(100) DEFAULT ''",

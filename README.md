@@ -20,10 +20,16 @@ LXC-Container im Proxmox-Cluster. Bedienung über die **Web-UI**.
   Status-Übersicht und **Monats-Diagramm** (Umsatz & Gewinn)
 - **Artikelliste** mit Suche, Status-/Tag-Filter und **sortierbaren Spalten**
 - **Artikel duplizieren** (als Vorlage)
+- **Lieferschein/Packzettel** pro verkauftem Artikel — druckoptimiert (Browser → „Als PDF speichern")
+- **Massen-Statusänderung**: mehrere Artikel auswählen und Status gemeinsam setzen
 - **CSV-Export** (Excel-kompatibel, optional pro Jahr — für Buchhaltung/Steuer)
 - **Import per eBay-Link** (Browse API): Titel, Preis, Zustand, Beschreibung und Bilder
   aus einem Inserat übernehmen — aktiv, sobald App-Keys hinterlegt sind
 - eBay-Verkaufs-Sync im Code **vorbereitet** (siehe `app/ebay.py`), Kleinanzeigen bleibt manuell
+
+Für den **Lieferschein** trägst du deine Absenderdaten in die `.env` ein
+(`SELLER_NAME`, `SELLER_ADDRESS`, optional `SELLER_EMAIL`/`SELLER_PHONE`);
+die Lieferadresse des Käufers wird pro Artikel erfasst.
 
 Secrets/Konfiguration liegen in einer nicht eingecheckten `.env` (siehe `.env.example`).
 Das Datenbankschema wird beim Start automatisch um neue Felder ergänzt
