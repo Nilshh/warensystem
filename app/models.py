@@ -12,8 +12,20 @@ STATUSES = ["Entwurf", "Angeboten", "Reserviert", "Verkauft", "Archiviert"]
 # Gängige Zustände (frei erweiterbar im Formular)
 CONDITIONS = ["Neu", "Neuwertig", "Gebraucht", "Defekt", "Ersatzteil"]
 
-# Auswahl Versandart (Dropdown)
-SHIPPING_METHODS = ["DHL", "DHL Päckchen", "Hermes", "UPS"]
+# Versandarten mit hinterlegten Standard-Versandkosten (€).
+# Bei Auswahl wird der Kostenwert automatisch vorgeschlagen (überschreibbar).
+# Preise bei Bedarf hier anpassen.
+SHIPPING_OPTIONS = [
+    {"label": "DHL Päckchen", "cost": 3.99},
+    {"label": "DHL", "cost": 5.49},
+    {"label": "Hermes", "cost": 4.50},
+    {"label": "UPS", "cost": 6.99},
+    {"label": "Selbstabholung", "cost": 0.00},
+]
+SHIPPING_METHODS = [o["label"] for o in SHIPPING_OPTIONS]
+
+# Wer trägt die Versandkosten (Standard: Käufer)
+SHIPPING_PAYERS = ["Käufer", "Verkäufer"]
 
 # Verkaufsplattform (für verkaufte Artikel)
 SALE_PLATFORMS = ["eBay", "Kleinanzeigen", "Sonstige"]
@@ -39,7 +51,8 @@ class Article(Base):
     listing_price: Mapped[float] = mapped_column(Float, default=0.0)   # Angebotspreis
     sold_price: Mapped[float] = mapped_column(Float, default=0.0)      # tatsächlicher Verkaufspreis
     shipping_method: Mapped[str] = mapped_column(String(100), default="")
-    shipping_cost: Mapped[float] = mapped_column(Float, default=0.0)   # eigene Versandkosten
+    shipping_cost: Mapped[float] = mapped_column(Float, default=0.0)   # Versandkosten
+    shipping_payer: Mapped[str] = mapped_column(String(20), default="Käufer")  # wer zahlt Versand
     fees: Mapped[float] = mapped_column(Float, default=0.0)            # Plattformgebühren
 
     # Plattform-Links (parallel möglich)
@@ -79,10 +92,15 @@ class Article(Base):
 
     @property
     def profit(self) -> float | None:
-        """Gewinn nach Kosten & Gebühren (sobald verkauft, auch archiviert)."""
+        """Gewinn nach Kosten & Gebühren (sobald verkauft, auch archiviert).
+
+        Versandkosten mindern den Gewinn nur, wenn der Verkäufer sie trägt.
+        Zahlt der Käufer (Standard), sind sie durchlaufend und neutral.
+        """
         if self.sold_at is None:
             return None
-        return round(self.sold_price - self.purchase_cost - self.shipping_cost - self.fees, 2)
+        ship = self.shipping_cost if self.shipping_payer == "Verkäufer" else 0.0
+        return round(self.sold_price - self.purchase_cost - ship - self.fees, 2)
 
     @property
     def margin(self) -> float | None:

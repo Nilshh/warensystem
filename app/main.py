@@ -21,7 +21,8 @@ from .database import Base, engine, get_db, SessionLocal
 from .migrations import run_migrations
 from .models import (
     Article, ArticleImage,
-    STATUSES, CONDITIONS, SHIPPING_METHODS, SALE_PLATFORMS,
+    STATUSES, CONDITIONS, SHIPPING_METHODS, SHIPPING_OPTIONS,
+    SHIPPING_PAYERS, SALE_PLATFORMS,
 )
 
 log = logging.getLogger("warensystem")
@@ -179,6 +180,7 @@ def apply_form(article: Article, data: dict) -> None:
     article.sold_price = parse_float(data.get("sold_price"))
     article.shipping_method = (data.get("shipping_method") or "").strip()
     article.shipping_cost = parse_float(data.get("shipping_cost"))
+    article.shipping_payer = (data.get("shipping_payer") or "Käufer").strip()
     article.fees = parse_float(data.get("fees"))
 
     article.ebay_url = (data.get("ebay_url") or "").strip()
@@ -398,6 +400,8 @@ def _form_context(request: Request, article: Article | None, error: str = "") ->
         "statuses": STATUSES,
         "conditions": CONDITIONS,
         "shipping_methods": SHIPPING_METHODS,
+        "shipping_options": SHIPPING_OPTIONS,
+        "shipping_payers": SHIPPING_PAYERS,
         "sale_platforms": SALE_PLATFORMS,
         "fee_percent": config.DEFAULT_EBAY_FEE_PERCENT,
         "ebay_import_enabled": ebay.import_supported(),
@@ -571,6 +575,8 @@ def sell_form(article_id: int, request: Request, db: Session = Depends(get_db)):
         {
             "request": request, "article": article,
             "shipping_methods": SHIPPING_METHODS,
+            "shipping_options": SHIPPING_OPTIONS,
+            "shipping_payers": SHIPPING_PAYERS,
             "sale_platforms": SALE_PLATFORMS,
             "fee_percent": config.DEFAULT_EBAY_FEE_PERCENT,
             "default_platform": default_platform,
@@ -590,6 +596,7 @@ async def sell_submit(article_id: int, request: Request, db: Session = Depends(g
     article.payment_method = (form.get("payment_method") or "").strip()
     article.shipping_method = (form.get("shipping_method") or "").strip()
     article.shipping_cost = parse_float(form.get("shipping_cost"))
+    article.shipping_payer = (form.get("shipping_payer") or "Käufer").strip()
     article.fees = parse_float(form.get("fees"))
     article.tracking_carrier = (form.get("tracking_carrier") or "").strip()
     article.tracking_number = (form.get("tracking_number") or "").strip()
@@ -774,7 +781,7 @@ def export_csv(year: int | None = None, db: Session = Depends(get_db)):
     writer.writerow([
         "Artikelnr", "ID", "Titel", "Kategorie", "Zustand", "Status", "Tags",
         "Einkaufskosten", "Angebotspreis", "Verkaufspreis",
-        "Versandart", "Versandkosten", "Gebuehren", "Gewinn", "Marge %",
+        "Versandart", "Versandkosten", "Versand zahlt", "Gebuehren", "Gewinn", "Marge %",
         "Verkauft ueber", "Kaeufer", "Zahlungsart",
         "Versanddienstleister", "Trackingnummer",
         "eBay-Link", "Kleinanzeigen-Link",
@@ -784,7 +791,7 @@ def export_csv(year: int | None = None, db: Session = Depends(get_db)):
         writer.writerow([
             a.article_no, a.id, a.title, a.category, a.condition, a.status, a.tags,
             f"{a.purchase_cost:.2f}", f"{a.listing_price:.2f}", f"{a.sold_price:.2f}",
-            a.shipping_method, f"{a.shipping_cost:.2f}", f"{a.fees:.2f}",
+            a.shipping_method, f"{a.shipping_cost:.2f}", a.shipping_payer, f"{a.fees:.2f}",
             f"{a.profit:.2f}" if a.profit is not None else "",
             f"{a.margin:.1f}" if a.margin is not None else "",
             a.sale_platform, a.buyer_name, a.payment_method,

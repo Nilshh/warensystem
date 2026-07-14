@@ -16,6 +16,7 @@ from sqlalchemy.engine import Engine
 _EXPECTED = {
     "articles": {
         "article_no": "VARCHAR(20) DEFAULT ''",
+        "shipping_payer": "VARCHAR(20) DEFAULT 'Käufer'",
         "tags": "VARCHAR(300) DEFAULT ''",
         "sale_platform": "VARCHAR(30) DEFAULT ''",
         "buyer_name": "VARCHAR(150) DEFAULT ''",

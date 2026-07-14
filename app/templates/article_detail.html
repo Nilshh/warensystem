@@ -79,7 +79,10 @@
       <tr><td>Einkaufskosten</td><td class="num">{{ article.purchase_cost | eur }}</td></tr>
       <tr><td>Angebotspreis</td><td class="num">{{ article.listing_price | eur }}</td></tr>
       <tr><td>Verkaufspreis</td><td class="num">{{ article.sold_price | eur if article.is_sold else '–' }}</td></tr>
-      <tr><td>Versand ({{ article.shipping_method or '—' }})</td><td class="num">{{ article.shipping_cost | eur }}</td></tr>
+      <tr>
+        <td>Versand ({{ article.shipping_method or '—' }}) · zahlt {{ article.shipping_payer }}</td>
+        <td class="num">{{ article.shipping_cost | eur }}{% if article.shipping_payer == 'Käufer' %} <span class="muted">(neutral)</span>{% endif %}</td>
+      </tr>
       <tr><td>Gebühren</td><td class="num">{{ article.fees | eur }}</td></tr>
       <tr class="total {{ 'positive' if article.profit and article.profit >= 0 else ('negative' if article.profit and article.profit < 0 else '') }}">
         <td>Gewinn</td><td class="num">{{ article.profit | eur if article.profit is not none else '– (noch nicht verkauft)' }}</td>

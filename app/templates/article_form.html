@@ -92,10 +92,11 @@
     </div>
     <div class="row">
       <label>Versandart
-        <select name="shipping_method">
+        <select name="shipping_method" id="shipping_method">
           <option value="">– bitte wählen –</option>
-          {% for m in shipping_methods %}
-          <option value="{{ m }}" {{ 'selected' if article and article.shipping_method == m else '' }}>{{ m }}</option>
+          {% for o in shipping_options %}
+          <option value="{{ o.label }}" data-cost="{{ '%.2f'|format(o.cost) }}"
+                  {{ 'selected' if article and article.shipping_method == o.label else '' }}>{{ o.label }} ({{ '%.2f'|format(o.cost) }} €)</option>
           {% endfor %}
           {% if article and article.shipping_method and article.shipping_method not in shipping_methods %}
           <option value="{{ article.shipping_method }}" selected>{{ article.shipping_method }}</option>
@@ -103,14 +104,25 @@
         </select>
       </label>
       <label>Versandkosten
-        <input type="number" step="0.01" name="shipping_cost"
+        <input type="number" step="0.01" name="shipping_cost" id="shipping_cost"
                value="{{ '%.2f'|format(article.shipping_cost) if article else '' }}">
       </label>
+      <label>Versandkosten trägt
+        <select name="shipping_payer">
+          {% for p in shipping_payers %}
+          <option value="{{ p }}" {{ 'selected' if (article.shipping_payer if article else 'Käufer') == p else '' }}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="row">
       <label>Gebühren
         <input type="number" step="0.01" name="fees" id="fees"
                value="{{ '%.2f'|format(article.fees) if article else '' }}">
         <button type="button" class="link-btn" id="calc-fee">≈ {{ fee_percent }}% berechnen</button>
       </label>
+      <label></label>
+      <label></label>
     </div>
   </fieldset>
 
@@ -192,6 +204,13 @@
     var listing = parseFloat(document.getElementById('listing_price').value) || 0;
     var base = sold > 0 ? sold : listing;
     document.getElementById('fees').value = (base * percent / 100).toFixed(2);
+  });
+
+  // Standard-Versandkosten bei Wahl der Versandart übernehmen
+  document.getElementById('shipping_method').addEventListener('change', function () {
+    var opt = this.options[this.selectedIndex];
+    var cost = opt.getAttribute('data-cost');
+    if (cost !== null) document.getElementById('shipping_cost').value = cost;
   });
 </script>
 {% endblock %}
