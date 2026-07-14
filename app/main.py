@@ -309,6 +309,7 @@ def dashboard(
 # Artikelliste
 # ---------------------------------------------------------------------------
 SORT_COLUMNS = {
+    "article_no": Article.article_no,
     "title": Article.title,
     "status": Article.status,
     "listing_price": Article.listing_price,
