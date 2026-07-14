@@ -77,6 +77,8 @@ h2 { font-size: 1.05rem; margin: 0 0 .75rem; }
 .status-name { font-size: .8rem; color: var(--muted); }
 
 .badge { display: inline-block; padding: .2rem .55rem; border-radius: 20px; font-size: .78rem; font-weight: 600; background: #eef0f4; color: #555; }
+.badge.artno { background: #eef1f5; color: #4a5261; font-family: ui-monospace, monospace; }
+.artno-inline { font-family: ui-monospace, monospace; font-size: .72rem; margin-left: .4rem; }
 .status-entwurf { background: #eceff3; color: #5b6572; }
 .status-angeboten { background: #e2edff; color: #2b6cff; }
 .status-reserviert { background: #fff2d9; color: #b8791b; }

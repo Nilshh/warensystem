@@ -13,6 +13,12 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 # Standard-Gebührensatz von eBay (nur Vorschlag im Formular)
 DEFAULT_EBAY_FEE_PERCENT = float(os.getenv("EBAY_FEE_PERCENT", "11.0"))
 
+# Verkaufte Artikel nach X Tagen automatisch archivieren (0 = deaktiviert)
+ARCHIVE_AFTER_DAYS = int(os.getenv("ARCHIVE_AFTER_DAYS", "7"))
+
+# Präfix der automatischen Artikelnummer (z.B. WA-00001)
+ARTICLE_NO_PREFIX = os.getenv("ARTICLE_NO_PREFIX", "WA-")
+
 # Absenderdaten für Lieferschein/Packzettel
 SELLER_NAME = os.getenv("SELLER_NAME", "")
 SELLER_ADDRESS = os.getenv("SELLER_ADDRESS", "")   # mehrzeilig via \n

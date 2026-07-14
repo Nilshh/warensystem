@@ -11,6 +11,10 @@ LXC-Container im Proxmox-Cluster. Bedienung über die **Web-UI**.
 ## Funktionen
 
 - Artikelverwaltung (Titel, Kategorie, Zustand, Beschreibung, Status, **Tags**)
+- **Automatische Artikelnummer** beim Anlegen (Präfix per `.env`, z.B. `WA-00001`)
+- **Geführter Verkauf-Workflow** und **automatische Archivierung** verkaufter Artikel
+  nach einstellbarer Frist (`ARCHIVE_AFTER_DAYS`, Standard 7 Tage; Verkäufe zählen
+  in der Statistik weiter)
 - **Bilder-Upload** pro Artikel, inkl. **Hauptbild festlegen**
 - Links + Angebots-Status für **eBay** und **Kleinanzeigen** (parallel)
 - **Preise & Kosten**: Einkauf, Angebotspreis, Verkaufspreis, Versandart (Dropdown), Versandkosten, Gebühren

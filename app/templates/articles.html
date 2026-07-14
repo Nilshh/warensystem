@@ -90,6 +90,7 @@
       </td>
       <td>
         <strong>{{ a.title }}</strong>
+        {% if a.article_no %}<span class="muted artno-inline">{{ a.article_no }}</span>{% endif %}
         {% if a.category %}<br><span class="muted">{{ a.category }}</span>{% endif %}
         {% if a.tag_list %}
         <div class="row-tags">
@@ -99,7 +100,7 @@
       </td>
       <td><span class="badge status-{{ a.status | lower }}">{{ a.status }}</span></td>
       <td class="num">{{ a.listing_price | eur }}</td>
-      <td class="num">{{ (a.sold_price | eur) if a.status == 'Verkauft' else '–' }}</td>
+      <td class="num">{{ (a.sold_price | eur) if a.is_sold else '–' }}</td>
       <td class="num {{ 'positive' if a.profit and a.profit >= 0 else ('negative' if a.profit and a.profit < 0 else '') }}">
         {{ a.profit | eur if a.profit is not none else '–' }}
       </td>

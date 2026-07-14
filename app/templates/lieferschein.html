@@ -97,6 +97,7 @@
           <td class="num">1</td>
           <td>
             {{ article.title }}
+            {% if article.article_no %}<div class="artikelnr">Artikel-Nr.: {{ article.article_no }}</div>{% endif %}
             {% if article.condition %}<div class="artikelnr">Zustand: {{ article.condition }}</div>{% endif %}
             {% if article.ebay_item_id %}<div class="artikelnr">eBay-Artikelnr.: {{ article.ebay_item_id }}</div>{% endif %}
           </td>

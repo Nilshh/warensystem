@@ -15,6 +15,7 @@ from sqlalchemy.engine import Engine
 # Erwartete Spalten je Tabelle: name -> SQL-Definition (Typ + Default)
 _EXPECTED = {
     "articles": {
+        "article_no": "VARCHAR(20) DEFAULT ''",
         "tags": "VARCHAR(300) DEFAULT ''",
         "sale_platform": "VARCHAR(30) DEFAULT ''",
         "buyer_name": "VARCHAR(150) DEFAULT ''",

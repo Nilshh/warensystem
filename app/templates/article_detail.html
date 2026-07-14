@@ -8,12 +8,13 @@
   <div>
     <a class="muted" href="/articles">← Zurück zur Liste</a>
     <h1>{{ article.title }}</h1>
+    {% if article.article_no %}<span class="badge artno">{{ article.article_no }}</span>{% endif %}
     <span class="badge status-{{ article.status | lower }}">{{ article.status }}</span>
     {% if article.category %}<span class="muted">· {{ article.category }}</span>{% endif %}
     {% if article.condition %}<span class="muted">· {{ article.condition }}</span>{% endif %}
   </div>
   <div class="actions">
-    {% if article.status != 'Verkauft' %}
+    {% if not article.is_sold %}
     <a class="btn btn-success" href="/articles/{{ article.id }}/sell">✅ Als verkauft markieren</a>
     {% endif %}
     <a class="btn" href="/articles/{{ article.id }}/edit">Bearbeiten</a>
@@ -23,7 +24,7 @@
       <button class="btn" type="submit">🔄 Von eBay aktualisieren</button>
     </form>
     {% endif %}
-    {% if article.status in ['Verkauft', 'Reserviert'] %}
+    {% if article.is_sold or article.status == 'Reserviert' %}
     <a class="btn btn-primary" href="/articles/{{ article.id }}/lieferschein" target="_blank">🧾 Lieferschein</a>
     {% endif %}
     <form method="post" action="/articles/{{ article.id }}/duplicate" style="display:inline">
@@ -77,7 +78,7 @@
     <table class="kv">
       <tr><td>Einkaufskosten</td><td class="num">{{ article.purchase_cost | eur }}</td></tr>
       <tr><td>Angebotspreis</td><td class="num">{{ article.listing_price | eur }}</td></tr>
-      <tr><td>Verkaufspreis</td><td class="num">{{ article.sold_price | eur if article.status == 'Verkauft' else '–' }}</td></tr>
+      <tr><td>Verkaufspreis</td><td class="num">{{ article.sold_price | eur if article.is_sold else '–' }}</td></tr>
       <tr><td>Versand ({{ article.shipping_method or '—' }})</td><td class="num">{{ article.shipping_cost | eur }}</td></tr>
       <tr><td>Gebühren</td><td class="num">{{ article.fees | eur }}</td></tr>
       <tr class="total {{ 'positive' if article.profit and article.profit >= 0 else ('negative' if article.profit and article.profit < 0 else '') }}">
@@ -106,7 +107,7 @@
     </table>
   </section>
 
-  {% if article.status == 'Verkauft' or article.buyer_name or article.tracking_number %}
+  {% if article.is_sold or article.buyer_name or article.tracking_number %}
   <section class="card">
     <h2>Käufer & Versand</h2>
     <table class="kv">

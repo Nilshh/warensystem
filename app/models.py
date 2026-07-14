@@ -27,6 +27,7 @@ class Article(Base):
     __tablename__ = "articles"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    article_no: Mapped[str] = mapped_column(String(20), default="", index=True)  # interne Artikelnummer
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text, default="")
     category: Mapped[str] = mapped_column(String(100), default="")
@@ -72,9 +73,14 @@ class Article(Base):
     )
 
     @property
+    def is_sold(self) -> bool:
+        """Verkauft = hat ein Verkaufsdatum (bleibt auch nach Archivierung wahr)."""
+        return self.sold_at is not None
+
+    @property
     def profit(self) -> float | None:
-        """Gewinn nach Kosten & Gebühren (nur wenn verkauft)."""
-        if self.status != "Verkauft":
+        """Gewinn nach Kosten & Gebühren (sobald verkauft, auch archiviert)."""
+        if self.sold_at is None:
             return None
         return round(self.sold_price - self.purchase_cost - self.shipping_cost - self.fees, 2)
 

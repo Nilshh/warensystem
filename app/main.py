@@ -1,9 +1,12 @@
 """Warenwirtschaftssystem — FastAPI-App."""
+import asyncio
 import csv
 import io
+import logging
 import urllib.parse
 import uuid
-from datetime import datetime, timezone
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, Depends, Request, Form, UploadFile, File, HTTPException
@@ -14,18 +17,102 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from . import backup, config, ebay
-from .database import Base, engine, get_db
+from .database import Base, engine, get_db, SessionLocal
 from .migrations import run_migrations
 from .models import (
     Article, ArticleImage,
     STATUSES, CONDITIONS, SHIPPING_METHODS, SALE_PLATFORMS,
 )
 
+log = logging.getLogger("warensystem")
+
 # Tabellen anlegen und fehlende Spalten nachziehen (leichtgewichtige Migration)
 Base.metadata.create_all(engine)
 run_migrations(engine)
 
-app = FastAPI(title="Warenwirtschaftssystem")
+
+def make_article_no(article_id: int) -> str:
+    return f"{config.ARTICLE_NO_PREFIX}{article_id:05d}"
+
+
+def assign_article_no(db: Session, article: Article) -> None:
+    """Vergibt die interne Artikelnummer (benötigt eine vergebene ID)."""
+    if article.id is None:
+        db.flush()
+    if not article.article_no:
+        article.article_no = make_article_no(article.id)
+
+
+def backfill_article_numbers() -> None:
+    """Vergibt fehlende Artikelnummern für Bestandsdaten (einmalig beim Start)."""
+    db = SessionLocal()
+    try:
+        missing = db.scalars(select(Article).where(Article.article_no == "")).all()
+        for a in missing:
+            a.article_no = make_article_no(a.id)
+        if missing:
+            db.commit()
+    finally:
+        db.close()
+
+
+backfill_article_numbers()
+
+
+def archive_old_sales() -> int:
+    """Setzt verkaufte Artikel nach ARCHIVE_AFTER_DAYS auf 'Archiviert'.
+
+    Das Verkaufsdatum bleibt erhalten, damit die Statistik stimmt.
+    Gibt die Anzahl archivierter Artikel zurück.
+    """
+    days = config.ARCHIVE_AFTER_DAYS
+    if days <= 0:
+        return 0
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    db = SessionLocal()
+    try:
+        candidates = db.scalars(
+            select(Article).where(
+                Article.status == "Verkauft", Article.sold_at.is_not(None)
+            )
+        ).all()
+        n = 0
+        for a in candidates:
+            sold = a.sold_at
+            if sold.tzinfo is None:            # naive Werte als UTC behandeln
+                sold = sold.replace(tzinfo=timezone.utc)
+            if sold <= cutoff:
+                a.status = "Archiviert"        # sold_at bleibt erhalten
+                n += 1
+        if n:
+            db.commit()
+            log.info("Auto-Archivierung: %d Artikel archiviert.", n)
+        return n
+    finally:
+        db.close()
+
+
+async def _archive_loop():
+    """Prüft periodisch auf zu archivierende Verkäufe (alle 6 Stunden)."""
+    while True:
+        try:
+            await asyncio.to_thread(archive_old_sales)
+        except Exception:  # Loop niemals sterben lassen
+            log.exception("Auto-Archivierung fehlgeschlagen")
+        await asyncio.sleep(6 * 3600)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(_archive_loop()) if config.ARCHIVE_AFTER_DAYS > 0 else None
+    try:
+        yield
+    finally:
+        if task:
+            task.cancel()
+
+
+app = FastAPI(title="Warenwirtschaftssystem", lifespan=lifespan)
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -118,10 +205,16 @@ def apply_form(article: Article, data: dict) -> None:
 
 
 def set_status(article: Article, new_status: str) -> None:
-    """Setzt den Status und pflegt das Verkaufsdatum automatisch."""
-    if new_status == "Verkauft" and article.status != "Verkauft":
+    """Setzt den Status und pflegt das Verkaufsdatum automatisch.
+
+    - Wechsel auf "Verkauft" stempelt das Verkaufsdatum (falls noch keins).
+    - Zurück in den Verkaufsprozess (Entwurf/Angeboten/Reserviert) verwirft den
+      Verkauf und löscht das Datum.
+    - "Archiviert" behält das Verkaufsdatum -> archivierte Verkäufe zählen weiter.
+    """
+    if new_status == "Verkauft" and article.sold_at is None:
         article.sold_at = datetime.now(timezone.utc)
-    elif new_status != "Verkauft":
+    elif new_status in ("Entwurf", "Angeboten", "Reserviert"):
         article.sold_at = None
     article.status = new_status
 
@@ -136,7 +229,7 @@ MONTH_NAMES = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun",
 def _sold_years(db: Session) -> list[int]:
     """Alle Jahre, in denen etwas verkauft wurde (absteigend)."""
     rows = db.scalars(
-        select(Article.sold_at).where(Article.status == "Verkauft", Article.sold_at.is_not(None))
+        select(Article.sold_at).where(Article.sold_at.is_not(None))
     ).all()
     return sorted({d.year for d in rows}, reverse=True)
 
@@ -161,8 +254,8 @@ def dashboard(
     if year is None:
         year = years[0] if years else datetime.now(timezone.utc).year
 
-    sold_all = db.scalars(select(Article).where(Article.status == "Verkauft")).all()
-    # Nach gewähltem Jahr filtern (für Kennzahlen + Diagramm)
+    sold_all = db.scalars(select(Article).where(Article.sold_at.is_not(None))).all()
+    # Nach gewähltem Jahr filtern (für Kennzahlen + Diagramm) — inkl. archivierter Verkäufe
     sold = [a for a in sold_all if a.sold_at and a.sold_at.year == year]
 
     umsatz = sum(a.sold_price for a in sold)
@@ -322,6 +415,7 @@ async def create_article(request: Request, db: Session = Depends(get_db)):
     article = Article()
     apply_form(article, form)
     db.add(article)
+    assign_article_no(db, article)
     db.commit()
     return RedirectResponse(f"/articles/{article.id}", status_code=303)
 
@@ -350,6 +444,7 @@ def _create_article_from_item(db: Session, item: dict, fallback_url: str = "") -
     )
     db.add(article)
     db.flush()  # article.id verfügbar machen
+    assign_article_no(db, article)
     _download_item_images(db, article, item["image_urls"])
     return article
 
@@ -597,6 +692,7 @@ def duplicate_article(article_id: int, db: Session = Depends(get_db)):
         # Verkaufs-/Käuferdaten und Links bewusst NICHT übernehmen
     )
     db.add(copy)
+    assign_article_no(db, copy)
     db.commit()
     return RedirectResponse(f"/articles/{copy.id}/edit", status_code=303)
 
@@ -675,7 +771,7 @@ def export_csv(year: int | None = None, db: Session = Depends(get_db)):
     buffer = io.StringIO()
     writer = csv.writer(buffer, delimiter=";")
     writer.writerow([
-        "ID", "Titel", "Kategorie", "Zustand", "Status", "Tags",
+        "Artikelnr", "ID", "Titel", "Kategorie", "Zustand", "Status", "Tags",
         "Einkaufskosten", "Angebotspreis", "Verkaufspreis",
         "Versandart", "Versandkosten", "Gebuehren", "Gewinn", "Marge %",
         "Verkauft ueber", "Kaeufer", "Zahlungsart",
@@ -685,7 +781,7 @@ def export_csv(year: int | None = None, db: Session = Depends(get_db)):
     ])
     for a in articles:
         writer.writerow([
-            a.id, a.title, a.category, a.condition, a.status, a.tags,
+            a.article_no, a.id, a.title, a.category, a.condition, a.status, a.tags,
             f"{a.purchase_cost:.2f}", f"{a.listing_price:.2f}", f"{a.sold_price:.2f}",
             a.shipping_method, f"{a.shipping_cost:.2f}", f"{a.fees:.2f}",
             f"{a.profit:.2f}" if a.profit is not None else "",
