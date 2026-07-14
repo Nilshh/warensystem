@@ -13,7 +13,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from . import config, ebay
+from . import backup, config, ebay
 from .database import Base, engine, get_db
 from .migrations import run_migrations
 from .models import (
@@ -142,7 +142,13 @@ def _sold_years(db: Session) -> list[int]:
 
 
 @app.get("/", response_class=HTMLResponse)
-def dashboard(request: Request, year: int | None = None, db: Session = Depends(get_db)):
+def dashboard(
+    request: Request,
+    year: int | None = None,
+    restored: int = 0,
+    error: str = "",
+    db: Session = Depends(get_db),
+):
     total = db.scalar(select(func.count(Article.id))) or 0
 
     status_counts = {s: 0 for s in STATUSES}
@@ -200,6 +206,8 @@ def dashboard(request: Request, year: int | None = None, db: Session = Depends(g
         "years": years,
         "monthly": monthly,
         "chart_max": chart_max,
+        "restored": restored,
+        "error": error,
     }
     return templates.TemplateResponse("dashboard.html", ctx)
 
@@ -614,6 +622,31 @@ def export_csv(year: int | None = None, db: Session = Depends(get_db)):
 def ebay_sync(db: Session = Depends(get_db)):
     # Bewusst noch nicht aktiv — siehe app/ebay.py
     return RedirectResponse("/", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# Backup & Restore
+# ---------------------------------------------------------------------------
+@app.get("/backup.zip")
+def backup_download():
+    data = backup.create_backup()
+    stamp = datetime.now().strftime("%Y%m%d-%H%M")
+    return StreamingResponse(
+        io.BytesIO(data),
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename=warensystem-backup-{stamp}.zip"},
+    )
+
+
+@app.post("/restore")
+async def restore_upload(file: UploadFile = File(...)):
+    data = await file.read()
+    try:
+        backup.restore_backup(data)
+        run_migrations(engine)  # ältere Backups ggf. auf aktuelles Schema heben
+    except ValueError as e:
+        return RedirectResponse(f"/?error={urllib.parse.quote(str(e))}", status_code=303)
+    return RedirectResponse("/?restored=1", status_code=303)
 
 
 @app.get("/health")

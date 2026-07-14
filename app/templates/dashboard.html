@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Dashboard · Warenwirtschaft{% endblock %}
 {% block content %}
+{% if restored %}<div class="banner success">✔ Backup erfolgreich eingespielt.</div>{% endif %}
+{% if error %}<div class="banner error">⚠ Wiederherstellung fehlgeschlagen: {{ error }}</div>{% endif %}
+
 <div class="page-head">
   <h1>Dashboard</h1>
   <form method="get" action="/" class="yearpick">
@@ -118,5 +121,18 @@
       <span class="hint">eBay-Sync inaktiv — Zugangsdaten in <code>.env</code> hinterlegen.</span>
     {% endif %}
   </div>
+</section>
+
+<section class="card">
+  <h2>Datensicherung</h2>
+  <div class="toolbar">
+    <a class="btn" href="/backup.zip">⬇ Backup herunterladen</a>
+    <form method="post" action="/restore" enctype="multipart/form-data" class="restore-form"
+          onsubmit="return confirm('Achtung: Das Einspielen überschreibt ALLE aktuellen Daten (Artikel + Bilder). Fortfahren?')">
+      <input type="file" name="file" accept=".zip" required>
+      <button class="btn btn-danger" type="submit">⬆ Backup einspielen</button>
+    </form>
+  </div>
+  <p class="hint">Das Backup enthält Datenbank und alle Bilder als ZIP. Das Einspielen <strong>ersetzt</strong> den aktuellen Stand vollständig.</p>
 </section>
 {% endblock %}

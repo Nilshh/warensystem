@@ -79,8 +79,14 @@ Container neu, räumt alte Images auf und prüft per Health-Check:
 
 ## Backup
 
-Es reicht, den Ordner `./data` zu sichern (enthält DB + Bilder), z.B. per
-Proxmox-Backup des Containers oder einem `tar`/`rsync`-Job.
+Zwei Wege:
+
+- **Per Knopfdruck (Web-UI):** Auf dem Dashboard unter *Datensicherung* →
+  **„Backup herunterladen"** lädt ein ZIP mit Datenbank + allen Bildern.
+  **„Backup einspielen"** stellt einen früheren Stand wieder her (überschreibt
+  die aktuellen Daten vollständig — mit Sicherheitsabfrage).
+- **Serverseitig:** Es reicht, den Ordner `./data` zu sichern (DB + Bilder),
+  z.B. per Proxmox-Backup des Containers oder einem `tar`/`rsync`-Job.
 
 ## eBay-Import aktivieren (per Link)
 

@@ -81,6 +81,10 @@ h2 { font-size: 1.05rem; margin: 0 0 .75rem; }
 .status-verkauft { background: #e0f5e9; color: #12a150; }
 .status-archiviert { background: #ededed; color: #888; }
 
+/* Restore-Formular */
+.restore-form { display: inline-flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+.restore-form input[type=file] { font-size: .82rem; max-width: 220px; }
+
 /* Toolbar hint */
 .hint { color: var(--muted); font-size: .85rem; }
 code { background: #eef0f4; padding: .1rem .35rem; border-radius: 4px; font-size: .85em; }
