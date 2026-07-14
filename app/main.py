@@ -442,11 +442,58 @@ def _get_article(db: Session, article_id: int) -> Article:
 
 
 @app.get("/articles/{article_id}", response_class=HTMLResponse)
-def article_detail(article_id: int, request: Request, db: Session = Depends(get_db)):
+def article_detail(
+    article_id: int, request: Request,
+    msg: str = "", error: str = "",
+    db: Session = Depends(get_db),
+):
     article = _get_article(db, article_id)
     return templates.TemplateResponse(
-        "article_detail.html", {"request": request, "article": article}
+        "article_detail.html",
+        {
+            "request": request, "article": article,
+            "msg": msg, "error": error,
+            "ebay_refresh_enabled": ebay.import_supported()
+            and bool(article.ebay_item_id or article.ebay_url),
+        },
     )
+
+
+@app.post("/articles/{article_id}/refresh-ebay")
+def refresh_from_ebay(article_id: int, db: Session = Depends(get_db)):
+    """Aktualisiert einen Artikel mit frischen Daten aus dem eBay-Inserat."""
+    article = _get_article(db, article_id)
+    source = article.ebay_item_id or article.ebay_url
+    if not source:
+        msg = urllib.parse.quote("Kein eBay-Bezug hinterlegt (Artikelnummer/Link fehlt).")
+        return RedirectResponse(f"/articles/{article_id}?error={msg}", status_code=303)
+
+    try:
+        item = ebay.fetch_item(source)
+    except ebay.EbayError as e:
+        msg = urllib.parse.quote(str(e))
+        return RedirectResponse(f"/articles/{article_id}?error={msg}", status_code=303)
+
+    old_price = article.listing_price
+    if item["title"]:
+        article.title = item["title"]
+    if item["condition"]:
+        article.condition = item["condition"]
+    if item["description"]:
+        article.description = item["description"]
+    if item["price"] and item["price"] > 0:
+        article.listing_price = item["price"]
+    if item["item_web_url"]:
+        article.ebay_url = item["item_web_url"]
+    if item["ebay_item_id"]:
+        article.ebay_item_id = item["ebay_item_id"]
+    db.commit()
+
+    if abs(article.listing_price - old_price) > 0.001:
+        note = f"Von eBay aktualisiert. Preis {format_eur(old_price)} → {format_eur(article.listing_price)}."
+    else:
+        note = "Von eBay aktualisiert. Preis unverändert."
+    return RedirectResponse(f"/articles/{article_id}?msg={urllib.parse.quote(note)}", status_code=303)
 
 
 @app.get("/articles/{article_id}/lieferschein", response_class=HTMLResponse)

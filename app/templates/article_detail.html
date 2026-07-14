@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block title %}{{ article.title }} · Warenwirtschaft{% endblock %}
 {% block content %}
+{% if msg %}<div class="banner success">✔ {{ msg }}</div>{% endif %}
+{% if error %}<div class="banner error">⚠ {{ error }}</div>{% endif %}
+
 <div class="page-head">
   <div>
     <a class="muted" href="/articles">← Zurück zur Liste</a>
@@ -11,6 +14,12 @@
   </div>
   <div class="actions">
     <a class="btn" href="/articles/{{ article.id }}/edit">Bearbeiten</a>
+    {% if ebay_refresh_enabled %}
+    <form method="post" action="/articles/{{ article.id }}/refresh-ebay" style="display:inline"
+          title="Preis, Titel, Zustand und Beschreibung frisch von eBay laden">
+      <button class="btn" type="submit">🔄 Von eBay aktualisieren</button>
+    </form>
+    {% endif %}
     {% if article.status in ['Verkauft', 'Reserviert'] %}
     <a class="btn btn-primary" href="/articles/{{ article.id }}/lieferschein" target="_blank">🧾 Lieferschein</a>
     {% endif %}
