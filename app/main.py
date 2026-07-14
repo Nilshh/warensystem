@@ -459,6 +459,54 @@ def article_detail(
     )
 
 
+@app.get("/articles/{article_id}/sell", response_class=HTMLResponse)
+def sell_form(article_id: int, request: Request, db: Session = Depends(get_db)):
+    """Geführtes Formular zum Erfassen eines Verkaufs."""
+    article = _get_article(db, article_id)
+    # sinnvolle Vorbelegung der Plattform
+    default_platform = article.sale_platform
+    if not default_platform:
+        if article.offered_ebay:
+            default_platform = "eBay"
+        elif article.offered_kleinanzeigen:
+            default_platform = "Kleinanzeigen"
+    return templates.TemplateResponse(
+        "sell_form.html",
+        {
+            "request": request, "article": article,
+            "shipping_methods": SHIPPING_METHODS,
+            "sale_platforms": SALE_PLATFORMS,
+            "fee_percent": config.DEFAULT_EBAY_FEE_PERCENT,
+            "default_platform": default_platform,
+        },
+    )
+
+
+@app.post("/articles/{article_id}/sell")
+async def sell_submit(article_id: int, request: Request, db: Session = Depends(get_db)):
+    article = _get_article(db, article_id)
+    form = await request.form()
+
+    article.sold_price = parse_float(form.get("sold_price"))
+    article.sale_platform = (form.get("sale_platform") or "").strip()
+    article.buyer_name = (form.get("buyer_name") or "").strip()
+    article.buyer_address = (form.get("buyer_address") or "").strip()
+    article.payment_method = (form.get("payment_method") or "").strip()
+    article.shipping_method = (form.get("shipping_method") or "").strip()
+    article.shipping_cost = parse_float(form.get("shipping_cost"))
+    article.fees = parse_float(form.get("fees"))
+    article.tracking_carrier = (form.get("tracking_carrier") or "").strip()
+    article.tracking_number = (form.get("tracking_number") or "").strip()
+    article.order_date = parse_date(form.get("order_date"))
+    article.shipped_at = parse_date(form.get("shipped_at"))
+
+    set_status(article, "Verkauft")
+    db.commit()
+
+    note = urllib.parse.quote(f"Verkauf erfasst. Gewinn: {format_eur(article.profit)}.")
+    return RedirectResponse(f"/articles/{article_id}?msg={note}", status_code=303)
+
+
 @app.post("/articles/{article_id}/refresh-ebay")
 def refresh_from_ebay(article_id: int, db: Session = Depends(get_db)):
     """Aktualisiert einen Artikel mit frischen Daten aus dem eBay-Inserat."""

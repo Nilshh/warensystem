@@ -13,6 +13,9 @@
     {% if article.condition %}<span class="muted">· {{ article.condition }}</span>{% endif %}
   </div>
   <div class="actions">
+    {% if article.status != 'Verkauft' %}
+    <a class="btn btn-success" href="/articles/{{ article.id }}/sell">✅ Als verkauft markieren</a>
+    {% endif %}
     <a class="btn" href="/articles/{{ article.id }}/edit">Bearbeiten</a>
     {% if ebay_refresh_enabled %}
     <form method="post" action="/articles/{{ article.id }}/refresh-ebay" style="display:inline"
