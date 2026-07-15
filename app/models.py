@@ -16,8 +16,15 @@ CONDITIONS = ["Neu", "Neuwertig", "Gebraucht", "Defekt", "Ersatzteil"]
 # Bei Auswahl wird der Kostenwert automatisch vorgeschlagen (überschreibbar).
 # Preise bei Bedarf hier anpassen.
 SHIPPING_OPTIONS = [
-    {"label": "DHL Päckchen", "cost": 3.99},
-    {"label": "DHL", "cost": 5.49},
+    # DHL (Online-Frankierung) — max. 2 kg bei Päckchen, sonst laut Gewichtsklasse
+    {"label": "DHL Päckchen S (2 kg, 35×25×10)", "cost": 4.19},
+    {"label": "DHL Päckchen M (2 kg, 60×30×15)", "cost": 5.19},
+    {"label": "DHL Paket 2 kg (60×30×15, mit Tracking)", "cost": 6.19},
+    {"label": "DHL Paket 5 kg (120×60×60)", "cost": 7.69},
+    {"label": "DHL Paket 10 kg (120×60×60)", "cost": 10.49},
+    {"label": "DHL Paket 20 kg (120×60×60)", "cost": 18.99},
+    {"label": "DHL Paket 31,5 kg (120×60×60)", "cost": 23.99},
+    # weitere Anbieter
     {"label": "Hermes", "cost": 4.50},
     {"label": "UPS", "cost": 6.99},
     {"label": "Selbstabholung", "cost": 0.00},
