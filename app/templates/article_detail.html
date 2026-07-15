@@ -131,6 +131,13 @@
   </section>
   {% endif %}
 
+  {% if article.note %}
+  <section class="card">
+    <h2>Notizen</h2>
+    <p class="desc">{{ article.note }}</p>
+  </section>
+  {% endif %}
+
   {% if article.description %}
   <section class="card">
     <h2>Beschreibung</h2>

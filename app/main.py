@@ -202,6 +202,7 @@ def apply_form(article: Article, data: dict) -> None:
     article.tracking_number = (data.get("tracking_number") or "").strip()
     article.order_date = parse_date(data.get("order_date"))
     article.shipped_at = parse_date(data.get("shipped_at"))
+    article.note = (data.get("note") or "").strip()
 
     set_status(article, new_status)
 
@@ -602,6 +603,7 @@ async def sell_submit(article_id: int, request: Request, db: Session = Depends(g
     article.tracking_number = (form.get("tracking_number") or "").strip()
     article.order_date = parse_date(form.get("order_date"))
     article.shipped_at = parse_date(form.get("shipped_at"))
+    article.note = (form.get("note") or "").strip()
 
     set_status(article, "Verkauft")
     db.commit()
@@ -783,7 +785,7 @@ def export_csv(year: int | None = None, db: Session = Depends(get_db)):
         "Einkaufskosten", "Angebotspreis", "Verkaufspreis",
         "Versandart", "Versandkosten", "Versand zahlt", "Gebuehren", "Gewinn", "Marge %",
         "Verkauft ueber", "Kaeufer", "Zahlungsart",
-        "Versanddienstleister", "Trackingnummer",
+        "Versanddienstleister", "Trackingnummer", "Notiz",
         "eBay-Link", "Kleinanzeigen-Link",
         "Angelegt", "Bestellt", "Versendet", "Verkauft",
     ])
@@ -795,7 +797,7 @@ def export_csv(year: int | None = None, db: Session = Depends(get_db)):
             f"{a.profit:.2f}" if a.profit is not None else "",
             f"{a.margin:.1f}" if a.margin is not None else "",
             a.sale_platform, a.buyer_name, a.payment_method,
-            a.tracking_carrier, a.tracking_number,
+            a.tracking_carrier, a.tracking_number, a.note,
             a.ebay_url, a.kleinanzeigen_url,
             a.created_at.strftime("%d.%m.%Y") if a.created_at else "",
             a.order_date.strftime("%d.%m.%Y") if a.order_date else "",

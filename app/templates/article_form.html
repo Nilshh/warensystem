@@ -188,6 +188,9 @@
     <label>Trackingnummer
       <input type="text" name="tracking_number" value="{{ article.tracking_number if article else '' }}">
     </label>
+    <label>Notizen <span class="muted">(Sonderfälle, z.B. abweichender Versand, Absprachen)</span>
+      <textarea name="note" rows="2">{{ article.note if article else '' }}</textarea>
+    </label>
   </fieldset>
 
   <div class="form-actions">

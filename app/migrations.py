@@ -26,6 +26,7 @@ _EXPECTED = {
         "tracking_number": "VARCHAR(100) DEFAULT ''",
         "order_date": "DATETIME",
         "shipped_at": "DATETIME",
+        "note": "TEXT DEFAULT ''",
     },
     "article_images": {
         "position": "INTEGER DEFAULT 0",

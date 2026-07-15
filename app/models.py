@@ -28,6 +28,7 @@ SHIPPING_OPTIONS = [
     {"label": "Hermes", "cost": 4.50},
     {"label": "UPS", "cost": 6.99},
     {"label": "Selbstabholung", "cost": 0.00},
+    {"label": "Sonstiges", "cost": 0.00},
 ]
 SHIPPING_METHODS = [o["label"] for o in SHIPPING_OPTIONS]
 
@@ -81,6 +82,9 @@ class Article(Base):
     tracking_number: Mapped[str] = mapped_column(String(100), default="")
     order_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     shipped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Freies Notizfeld für Sonderfälle
+    note: Mapped[str] = mapped_column(Text, default="")
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
