@@ -436,14 +436,14 @@ def list_articles(
     status: str = "",
     tag: str = "",
     category: str = "",
-    sort: str = "updated_at",
-    dir: str = "desc",
+    sort: str = "article_no",
+    dir: str = "asc",
     updated: int = 0,
     stored: int = 0,
     categorized: int = 0,
     db: Session = Depends(get_db),
 ):
-    column = SORT_COLUMNS.get(sort, Article.updated_at)
+    column = SORT_COLUMNS.get(sort, Article.article_no)
     order = column.asc() if dir == "asc" else column.desc()
 
     stmt = select(Article).order_by(order)
@@ -505,8 +505,8 @@ async def bulk_status(request: Request, db: Session = Depends(get_db)):
         "status": form.get("status", ""),
         "tag": form.get("tag", ""),
         "category": form.get("category", ""),
-        "sort": form.get("sort", "updated_at"),
-        "dir": form.get("dir", "desc"),
+        "sort": form.get("sort", "article_no"),
+        "dir": form.get("dir", "asc"),
         "updated": updated,
     }
     query = urllib.parse.urlencode({k: v for k, v in params.items() if v != ""})
@@ -530,8 +530,8 @@ async def bulk_category(request: Request, db: Session = Depends(get_db)):
     params = {
         "q": form.get("q", ""), "status": form.get("status", ""),
         "tag": form.get("tag", ""), "category": form.get("category", ""),
-        "sort": form.get("sort", "updated_at"),
-        "dir": form.get("dir", "desc"), "categorized": categorized,
+        "sort": form.get("sort", "article_no"),
+        "dir": form.get("dir", "asc"), "categorized": categorized,
     }
     query = urllib.parse.urlencode({k: v for k, v in params.items() if v != ""})
     return RedirectResponse(f"/articles?{query}", status_code=303)
@@ -579,8 +579,8 @@ async def bulk_storage(request: Request, db: Session = Depends(get_db)):
     params = {
         "q": form.get("q", ""), "status": form.get("status", ""),
         "tag": form.get("tag", ""), "category": form.get("category", ""),
-        "sort": form.get("sort", "updated_at"),
-        "dir": form.get("dir", "desc"), "stored": stored,
+        "sort": form.get("sort", "article_no"),
+        "dir": form.get("dir", "asc"), "stored": stored,
     }
     query = urllib.parse.urlencode({k: v for k, v in params.items() if v != ""})
     return RedirectResponse(f"/articles?{query}", status_code=303)
