@@ -467,6 +467,30 @@ async def bulk_status(request: Request, db: Session = Depends(get_db)):
     return RedirectResponse(f"/articles?{query}", status_code=303)
 
 
+@app.post("/articles/bulk-labels", response_class=HTMLResponse)
+async def bulk_labels(request: Request, db: Session = Depends(get_db)):
+    """Druckseite mit den QR-Etiketten mehrerer ausgewählter Artikel."""
+    form = await request.form()
+    ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()]
+    articles = (
+        db.scalars(
+            select(Article).where(Article.id.in_(ids)).order_by(Article.article_no)
+        ).all()
+        if ids else []
+    )
+    labels = [
+        {
+            "article": a,
+            "url": _article_url(a.id),
+            "qr_svg": Markup(make_qr_svg(_article_url(a.id))),
+        }
+        for a in articles
+    ]
+    return templates.TemplateResponse(
+        "labels_bulk.html", {"request": request, "labels": labels}
+    )
+
+
 @app.post("/articles/bulk-storage")
 async def bulk_storage(request: Request, db: Session = Depends(get_db)):
     """Setzt den Lagerplatz mehrerer ausgewählter Artikel auf einmal."""

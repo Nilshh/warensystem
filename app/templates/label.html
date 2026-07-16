@@ -21,9 +21,8 @@
     .label .qr { width: 42mm; height: 42mm; margin: 0 auto; }
     .label .qr svg { width: 100%; height: 100%; display: block; }
     .label .artno { font-family: ui-monospace, monospace; font-weight: 700; font-size: 1.05rem; margin-top: 3mm; }
-    .label .title { font-size: .82rem; margin-top: 1mm; line-height: 1.25;
-                    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .label .url { font-size: .6rem; color: #888; margin-top: 1.5mm; word-break: break-all; }
+    .label .title { font-size: .82rem; margin-top: 1mm; line-height: 1.3;
+                    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
     @media print {
       body { background: #fff; }
@@ -43,8 +42,6 @@
     <div class="qr">{{ qr_svg }}</div>
     {% if article.article_no %}<div class="artno">{{ article.article_no }}</div>{% endif %}
     <div class="title">{{ article.title }}</div>
-    {% if article.storage_location %}<div class="storage">📍 {{ article.storage_location }}</div>{% endif %}
-    <div class="url">{{ url }}</div>
   </div>
 </body>
 </html>

@@ -43,10 +43,7 @@
 {% endmacro %}
 
 {% if articles %}
-<form method="post" action="/articles/bulk-status" id="bulk-form"
-      onsubmit="return document.querySelectorAll('.rowcheck:checked').length > 0
-                       ? confirm(document.querySelectorAll('.rowcheck:checked').length + ' Artikel bearbeiten?')
-                       : (alert('Bitte zuerst Artikel auswählen.'), false)">
+<form method="post" action="/articles/bulk-status" id="bulk-form">
   {# Filter/Sortierung für den Rücksprung erhalten #}
   <input type="hidden" name="q" value="{{ q }}">
   <input type="hidden" name="status" value="{{ active_status }}">
@@ -70,6 +67,8 @@
       </select>
     </label>
     <button class="btn btn-sm" type="submit" formaction="/articles/bulk-storage">Lagerplatz setzen</button>
+    <span class="bulk-sep"></span>
+    <button class="btn btn-sm" type="submit" formaction="/articles/bulk-labels" formtarget="_blank">🏷 QR-Etiketten drucken</button>
   </div>
 
 <div class="table-wrap">
@@ -151,6 +150,18 @@
     });
     checks.forEach(function (c) { c.addEventListener('change', update); });
     update();
+
+    document.getElementById('bulk-form').addEventListener('submit', function (e) {
+      var n = document.querySelectorAll('.rowcheck:checked').length;
+      if (n === 0) {
+        alert('Bitte zuerst Artikel auswählen.');
+        e.preventDefault();
+        return;
+      }
+      var action = (e.submitter && e.submitter.getAttribute('formaction')) || '';
+      if (action.indexOf('bulk-labels') !== -1) return;  // Drucken: keine Rückfrage
+      if (!confirm(n + ' Artikel bearbeiten?')) e.preventDefault();
+    });
   })();
 </script>
 {% else %}
