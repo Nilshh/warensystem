@@ -23,7 +23,7 @@ from . import backup, config, ebay
 from .database import Base, engine, get_db, SessionLocal
 from .migrations import run_migrations
 from .models import (
-    Article, ArticleImage, StorageLocation,
+    Article, ArticleImage, Sale, StorageLocation,
     STATUSES, CONDITIONS, SHIPPING_METHODS, SHIPPING_OPTIONS,
     SHIPPING_PAYERS, SALE_PLATFORMS,
 )
@@ -86,11 +86,57 @@ def backfill_storage_locations() -> None:
 backfill_storage_locations()
 
 
-def archive_old_sales() -> int:
-    """Setzt verkaufte Artikel nach ARCHIVE_AFTER_DAYS auf 'Archiviert'.
+def migrate_legacy_sales() -> int:
+    """Überführt Alt-Verkäufe (Verkaufsdaten am Artikel) einmalig in die Sale-Tabelle.
 
-    Das Verkaufsdatum bleibt erhalten, damit die Statistik stimmt.
-    Gibt die Anzahl archivierter Artikel zurück.
+    Idempotent: Artikel, die bereits einen Verkauf haben, werden übersprungen.
+    Verkaufte Alt-Artikel bekommen Bestand 0.
+    """
+    db = SessionLocal()
+    try:
+        legacy = db.scalars(select(Article).where(Article.sold_at.is_not(None))).all()
+        migrated = 0
+        for a in legacy:
+            if a.sales:  # bereits migriert
+                continue
+            db.add(Sale(
+                article_id=a.id,
+                quantity=1,
+                sold_price=a.sold_price,
+                unit_purchase_cost=a.purchase_cost,
+                fees=a.fees,
+                shipping_method=a.shipping_method,
+                shipping_cost=a.shipping_cost,
+                shipping_payer=a.shipping_payer or "Käufer",
+                sale_platform=a.sale_platform,
+                buyer_name=a.buyer_name,
+                buyer_address=a.buyer_address,
+                payment_method=a.payment_method,
+                tracking_carrier=a.tracking_carrier,
+                tracking_number=a.tracking_number,
+                note=a.note,
+                order_date=a.order_date,
+                shipped_at=a.shipped_at,
+                sold_at=a.sold_at,
+            ))
+            a.quantity = 0  # Einzelstück war verkauft
+            migrated += 1
+        if migrated:
+            db.commit()
+            log.info("Migration: %d Alt-Verkäufe in die Verkaufshistorie übernommen.", migrated)
+        return migrated
+    finally:
+        db.close()
+
+
+migrate_legacy_sales()
+
+
+def archive_old_sales() -> int:
+    """Archiviert ausverkaufte Artikel, deren letzter Verkauf länger zurückliegt.
+
+    Kriterium: Bestand 0 und letzter Verkauf älter als ARCHIVE_AFTER_DAYS.
+    Die Verkaufshistorie bleibt erhalten, damit die Statistik stimmt.
     """
     days = config.ARCHIVE_AFTER_DAYS
     if days <= 0:
@@ -99,21 +145,21 @@ def archive_old_sales() -> int:
     db = SessionLocal()
     try:
         candidates = db.scalars(
-            select(Article).where(
-                Article.status == "Verkauft", Article.sold_at.is_not(None)
-            )
+            select(Article).where(Article.quantity == 0, Article.status != "Archiviert")
         ).all()
         n = 0
         for a in candidates:
-            sold = a.sold_at
-            if sold.tzinfo is None:            # naive Werte als UTC behandeln
-                sold = sold.replace(tzinfo=timezone.utc)
-            if sold <= cutoff:
-                a.status = "Archiviert"        # sold_at bleibt erhalten
+            last = a.last_sold_at
+            if last is None:
+                continue
+            if last.tzinfo is None:            # naive Werte als UTC behandeln
+                last = last.replace(tzinfo=timezone.utc)
+            if last <= cutoff:
+                a.status = "Archiviert"
                 n += 1
         if n:
             db.commit()
-            log.info("Auto-Archivierung: %d Artikel archiviert.", n)
+            log.info("Auto-Archivierung: %d ausverkaufte Artikel archiviert.", n)
         return n
     finally:
         db.close()
@@ -201,13 +247,13 @@ def apply_form(article: Article, data: dict) -> None:
     article.condition = (data.get("condition") or "").strip()
     new_status = (data.get("status") or "Entwurf").strip()
 
+    article.quantity = max(0, int(parse_float(data.get("quantity")) or 0))
     article.purchase_cost = parse_float(data.get("purchase_cost"))
     article.listing_price = parse_float(data.get("listing_price"))
-    article.sold_price = parse_float(data.get("sold_price"))
+    # Versand-Vorbelegung für kommende Verkäufe
     article.shipping_method = (data.get("shipping_method") or "").strip()
     article.shipping_cost = parse_float(data.get("shipping_cost"))
     article.shipping_payer = (data.get("shipping_payer") or "Käufer").strip()
-    article.fees = parse_float(data.get("fees"))
 
     article.ebay_url = (data.get("ebay_url") or "").strip()
     article.ebay_item_id = (data.get("ebay_item_id") or "").strip()
@@ -219,38 +265,26 @@ def apply_form(article: Article, data: dict) -> None:
     raw_tags = (data.get("tags") or "").split(",")
     article.tags = ", ".join(t.strip() for t in raw_tags if t.strip())
 
-
-    # Käufer- & Versandabwicklung
-    article.sale_platform = (data.get("sale_platform") or "").strip()
-    article.buyer_name = (data.get("buyer_name") or "").strip()
-    article.buyer_address = (data.get("buyer_address") or "").strip()
-    article.payment_method = (data.get("payment_method") or "").strip()
-    article.tracking_carrier = (data.get("tracking_carrier") or "").strip()
-    article.tracking_number = (data.get("tracking_number") or "").strip()
-    article.order_date = parse_date(data.get("order_date"))
-    article.shipped_at = parse_date(data.get("shipped_at"))
     article.note = (data.get("note") or "").strip()
 
     set_status(article, new_status)
 
 
 def set_status(article: Article, new_status: str) -> None:
-    """Setzt den Status und pflegt das Verkaufsdatum automatisch.
+    """Setzt den Status des Artikels.
 
-    - Wechsel auf "Verkauft" stempelt das Verkaufsdatum (falls noch keins).
-    - Zurück in den Verkaufsprozess (Entwurf/Angeboten/Reserviert) verwirft den
-      Verkauf und löscht das Datum.
-    - "Archiviert" behält das Verkaufsdatum -> archivierte Verkäufe zählen weiter.
+    Der Status ist eine Kennzeichnung des Angebots; Verkäufe und Bestand werden
+    über die Verkaufshistorie bzw. `quantity` geführt.
     """
-    if new_status == "Verkauft" and article.sold_at is None:
-        article.sold_at = datetime.now(timezone.utc)
-        # Lagerplatz wird beim Verkauf frei
+    article.status = new_status
+
+
+def _free_storage_if_sold_out(article: Article) -> None:
+    """Gibt den Lagerplatz frei, sobald der Bestand aufgebraucht ist."""
+    if article.quantity <= 0:
         article.storage_area = ""
         article.storage_shelf = ""
         article.storage_bin = ""
-    elif new_status in ("Entwurf", "Angeboten", "Reserviert"):
-        article.sold_at = None
-    article.status = new_status
 
 
 def _set_article_storage(article: Article, loc: StorageLocation | None) -> None:
@@ -300,9 +334,7 @@ MONTH_NAMES = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun",
 
 def _sold_years(db: Session) -> list[int]:
     """Alle Jahre, in denen etwas verkauft wurde (absteigend)."""
-    rows = db.scalars(
-        select(Article.sold_at).where(Article.sold_at.is_not(None))
-    ).all()
+    rows = db.scalars(select(Sale.sold_at).where(Sale.sold_at.is_not(None))).all()
     return sorted({d.year for d in rows}, reverse=True)
 
 
@@ -326,34 +358,31 @@ def dashboard(
     if year is None:
         year = years[0] if years else datetime.now(timezone.utc).year
 
-    sold_all = db.scalars(select(Article).where(Article.sold_at.is_not(None))).all()
-    # Nach gewähltem Jahr filtern (für Kennzahlen + Diagramm) — inkl. archivierter Verkäufe
-    sold = [a for a in sold_all if a.sold_at and a.sold_at.year == year]
+    # Alle Verkäufe des gewählten Jahres (inkl. archivierter Artikel)
+    all_sales = db.scalars(select(Sale).where(Sale.sold_at.is_not(None))).all()
+    sold = [s for s in all_sales if s.sold_at.year == year]
 
-    umsatz = sum(a.sold_price for a in sold)
-    kosten = sum(a.purchase_cost + a.shipping_cost + a.fees for a in sold)
-    gewinn = round(umsatz - kosten, 2)
+    umsatz = round(sum(s.sold_price for s in sold), 2)
+    gewinn = round(sum(s.profit for s in sold), 2)
+    kosten = round(umsatz - gewinn, 2)
 
     # Monatliche Aggregation für das Jahr
     monthly = []
     for m in range(1, 13):
-        items = [a for a in sold if a.sold_at and a.sold_at.month == m]
-        m_umsatz = sum(a.sold_price for a in items)
-        m_gewinn = round(sum((a.profit or 0) for a in items), 2)
+        items = [s for s in sold if s.sold_at.month == m]
         monthly.append({
             "name": MONTH_NAMES[m - 1],
-            "umsatz": m_umsatz,
-            "gewinn": m_gewinn,
-            "count": len(items),
+            "umsatz": round(sum(s.sold_price for s in items), 2),
+            "gewinn": round(sum(s.profit for s in items), 2),
+            "count": sum(s.quantity for s in items),
         })
     chart_max = max([m["umsatz"] for m in monthly] + [m["gewinn"] for m in monthly] + [1])
 
-    # In noch nicht verkauften Artikeln gebundenes Kapital (jahresunabhängig)
-    offen = db.scalars(
-        select(Article).where(Article.status.in_(["Entwurf", "Angeboten", "Reserviert"]))
-    ).all()
-    gebundenes_kapital = sum(a.purchase_cost for a in offen)
-    potenzieller_umsatz = sum(a.listing_price for a in offen)
+    # Bestand: gebundenes Kapital und potenzieller Umsatz (jahresunabhängig)
+    offen = db.scalars(select(Article).where(Article.quantity > 0)).all()
+    gebundenes_kapital = round(sum(a.stock_value for a in offen), 2)
+    potenzieller_umsatz = round(sum(a.listing_price * a.quantity for a in offen), 2)
+    bestand_stueck = sum(a.quantity for a in offen)
 
     ctx = {
         "request": request,
@@ -362,8 +391,9 @@ def dashboard(
         "umsatz": umsatz,
         "kosten": kosten,
         "gewinn": gewinn,
-        "verkauft_anzahl": len(sold),
+        "verkauft_anzahl": sum(s.quantity for s in sold),
         "offen_anzahl": len(offen),
+        "bestand_stueck": bestand_stueck,
         "gebundenes_kapital": gebundenes_kapital,
         "potenzieller_umsatz": potenzieller_umsatz,
         "ebay_configured": ebay.is_configured(),
@@ -385,8 +415,8 @@ SORT_COLUMNS = {
     "storage_area": Article.storage_area,
     "title": Article.title,
     "status": Article.status,
+    "quantity": Article.quantity,
     "listing_price": Article.listing_price,
-    "sold_price": Article.sold_price,
     "updated_at": Article.updated_at,
 }
 
@@ -570,6 +600,7 @@ def _create_article_from_item(db: Session, item: dict, fallback_url: str = "") -
         description=item["description"],
         condition=item["condition"],
         status="Entwurf",
+        quantity=item.get("quantity", 1),   # Stückzahl aus dem Inserat
         listing_price=item["price"],
         ebay_url=item["item_web_url"] or fallback_url.strip(),
         ebay_item_id=item["ebay_item_id"],
@@ -691,13 +722,12 @@ def article_detail(
 def sell_form(article_id: int, request: Request, db: Session = Depends(get_db)):
     """Geführtes Formular zum Erfassen eines Verkaufs."""
     article = _get_article(db, article_id)
-    # sinnvolle Vorbelegung der Plattform
-    default_platform = article.sale_platform
-    if not default_platform:
-        if article.offered_ebay:
-            default_platform = "eBay"
-        elif article.offered_kleinanzeigen:
-            default_platform = "Kleinanzeigen"
+    # sinnvolle Vorbelegung der Plattform aus den Angebots-Häkchen
+    default_platform = ""
+    if article.offered_ebay:
+        default_platform = "eBay"
+    elif article.offered_kleinanzeigen:
+        default_platform = "Kleinanzeigen"
     return templates.TemplateResponse(
         "sell_form.html",
         {
@@ -717,25 +747,44 @@ async def sell_submit(article_id: int, request: Request, db: Session = Depends(g
     article = _get_article(db, article_id)
     form = await request.form()
 
-    article.sold_price = parse_float(form.get("sold_price"))
-    article.sale_platform = (form.get("sale_platform") or "").strip()
-    article.buyer_name = (form.get("buyer_name") or "").strip()
-    article.buyer_address = (form.get("buyer_address") or "").strip()
-    article.payment_method = (form.get("payment_method") or "").strip()
-    article.shipping_method = (form.get("shipping_method") or "").strip()
-    article.shipping_cost = parse_float(form.get("shipping_cost"))
-    article.shipping_payer = (form.get("shipping_payer") or "Käufer").strip()
-    article.fees = parse_float(form.get("fees"))
-    article.tracking_carrier = (form.get("tracking_carrier") or "").strip()
-    article.tracking_number = (form.get("tracking_number") or "").strip()
-    article.order_date = parse_date(form.get("order_date"))
-    article.shipped_at = parse_date(form.get("shipped_at"))
-    article.note = (form.get("note") or "").strip()
+    qty = max(1, int(parse_float(form.get("quantity")) or 1))
+    if qty > article.quantity:
+        msg = urllib.parse.quote(
+            f"Nur noch {article.quantity} Stück auf Bestand — Verkauf nicht erfasst."
+        )
+        return RedirectResponse(f"/articles/{article_id}?error={msg}", status_code=303)
 
-    set_status(article, "Verkauft")
+    sale = Sale(
+        article_id=article.id,
+        quantity=qty,
+        sold_price=parse_float(form.get("sold_price")),
+        unit_purchase_cost=article.purchase_cost,   # Snapshot des Einkaufspreises
+        fees=parse_float(form.get("fees")),
+        shipping_method=(form.get("shipping_method") or "").strip(),
+        shipping_cost=parse_float(form.get("shipping_cost")),
+        shipping_payer=(form.get("shipping_payer") or "Käufer").strip(),
+        sale_platform=(form.get("sale_platform") or "").strip(),
+        buyer_name=(form.get("buyer_name") or "").strip(),
+        buyer_address=(form.get("buyer_address") or "").strip(),
+        payment_method=(form.get("payment_method") or "").strip(),
+        tracking_carrier=(form.get("tracking_carrier") or "").strip(),
+        tracking_number=(form.get("tracking_number") or "").strip(),
+        note=(form.get("note") or "").strip(),
+        order_date=parse_date(form.get("order_date")),
+        shipped_at=parse_date(form.get("shipped_at")),
+        sold_at=datetime.now(timezone.utc),
+    )
+    db.add(sale)
+
+    # Bestand reduzieren; bei Ausverkauf Status setzen und Lagerplatz freigeben
+    article.quantity -= qty
+    if article.quantity <= 0:
+        article.status = "Verkauft"
+        _free_storage_if_sold_out(article)
     db.commit()
 
-    note = urllib.parse.quote(f"Verkauf erfasst. Gewinn: {format_eur(article.profit)}.")
+    rest = f" Restbestand: {article.quantity}." if article.quantity > 0 else " Artikel ist jetzt ausverkauft."
+    note = urllib.parse.quote(f"Verkauf erfasst. Gewinn: {format_eur(sale.profit)}.{rest}")
     return RedirectResponse(f"/articles/{article_id}?msg={note}", status_code=303)
 
 
@@ -981,20 +1030,23 @@ def storage_label(
     )
 
 
-@app.get("/articles/{article_id}/lieferschein", response_class=HTMLResponse)
-def lieferschein(article_id: int, request: Request, db: Session = Depends(get_db)):
-    """Druckbarer Lieferschein/Packzettel für einen Artikel."""
-    article = _get_article(db, article_id)
+@app.get("/sales/{sale_id}/lieferschein", response_class=HTMLResponse)
+def lieferschein(sale_id: int, request: Request, db: Session = Depends(get_db)):
+    """Druckbarer Lieferschein/Packzettel für einen einzelnen Verkauf."""
+    sale = db.get(Sale, sale_id)
+    if not sale:
+        raise HTTPException(status_code=404, detail="Verkauf nicht gefunden")
     seller = {
         "name": config.SELLER_NAME,
         "address": config.SELLER_ADDRESS.replace("\\n", "\n"),
         "email": config.SELLER_EMAIL,
         "phone": config.SELLER_PHONE,
     }
-    date = article.shipped_at or article.sold_at or datetime.now(timezone.utc)
+    date = sale.shipped_at or sale.sold_at or datetime.now(timezone.utc)
     return templates.TemplateResponse(
         "lieferschein.html",
-        {"request": request, "article": article, "seller": seller, "date": date},
+        {"request": request, "sale": sale, "article": sale.article,
+         "seller": seller, "date": date},
     )
 
 
@@ -1026,13 +1078,15 @@ def duplicate_article(article_id: int, db: Session = Depends(get_db)):
         category=src.category,
         condition=src.condition,
         status="Entwurf",  # Kopie startet als Entwurf
+        quantity=1,
         purchase_cost=src.purchase_cost,
         listing_price=src.listing_price,
         shipping_method=src.shipping_method,
         shipping_cost=src.shipping_cost,
-        fees=src.fees,
+        shipping_payer=src.shipping_payer,
         tags=src.tags,
-        # Verkaufs-/Käuferdaten und Links bewusst NICHT übernehmen
+        note=src.note,
+        # Verkaufshistorie und Links bewusst NICHT übernehmen
     )
     db.add(copy)
     assign_article_no(db, copy)
@@ -1106,46 +1160,79 @@ def delete_image(article_id: int, image_id: int, db: Session = Depends(get_db)):
 # ---------------------------------------------------------------------------
 @app.get("/export.csv")
 def export_csv(year: int | None = None, db: Session = Depends(get_db)):
+    """Bestandsliste: alle Artikel mit Bestand und Verkaufssummen."""
     articles = db.scalars(select(Article).order_by(Article.id)).all()
-    if year is not None:
-        # Bei Jahresfilter nur die in diesem Jahr verkauften Artikel
-        articles = [a for a in articles if a.sold_at and a.sold_at.year == year]
 
     buffer = io.StringIO()
     writer = csv.writer(buffer, delimiter=";")
     writer.writerow([
         "Artikelnr", "ID", "Titel", "Kategorie", "Zustand", "Status", "Lagerplatz", "Tags",
-        "Einkaufskosten", "Angebotspreis", "Verkaufspreis",
-        "Versandart", "Versandkosten", "Versand zahlt", "Gebuehren", "Gewinn", "Marge %",
-        "Verkauft ueber", "Kaeufer", "Zahlungsart",
-        "Versanddienstleister", "Trackingnummer", "Notiz",
-        "eBay-Link", "Kleinanzeigen-Link",
-        "Angelegt", "Bestellt", "Versendet", "Verkauft",
+        "Bestand", "Einkauf je Stueck", "Angebotspreis", "Bestandswert",
+        "Verkauft Stueck", "Umsatz", "Gewinn",
+        "eBay-Link", "Kleinanzeigen-Link", "Notiz", "Angelegt",
     ])
     for a in articles:
         writer.writerow([
-            a.article_no, a.id, a.title, a.category, a.condition, a.status, a.storage_location, a.tags,
-            f"{a.purchase_cost:.2f}", f"{a.listing_price:.2f}", f"{a.sold_price:.2f}",
-            a.shipping_method, f"{a.shipping_cost:.2f}", a.shipping_payer, f"{a.fees:.2f}",
-            f"{a.profit:.2f}" if a.profit is not None else "",
-            f"{a.margin:.1f}" if a.margin is not None else "",
-            a.sale_platform, a.buyer_name, a.payment_method,
-            a.tracking_carrier, a.tracking_number, a.note,
-            a.ebay_url, a.kleinanzeigen_url,
+            a.article_no, a.id, a.title, a.category, a.condition, a.status,
+            a.storage_location, a.tags,
+            a.quantity, f"{a.purchase_cost:.2f}", f"{a.listing_price:.2f}",
+            f"{a.stock_value:.2f}",
+            a.sold_quantity, f"{a.revenue:.2f}",
+            f"{a.total_profit:.2f}" if a.total_profit is not None else "",
+            a.ebay_url, a.kleinanzeigen_url, a.note,
             a.created_at.strftime("%d.%m.%Y") if a.created_at else "",
-            a.order_date.strftime("%d.%m.%Y") if a.order_date else "",
-            a.shipped_at.strftime("%d.%m.%Y") if a.shipped_at else "",
-            a.sold_at.strftime("%d.%m.%Y") if a.sold_at else "",
         ])
 
     buffer.seek(0)
-    # BOM voranstellen, damit Excel Umlaute korrekt anzeigt
+    content = "﻿" + buffer.getvalue()   # BOM für Excel
+    return StreamingResponse(
+        io.BytesIO(content.encode("utf-8")),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=warensystem_bestand.csv"},
+    )
+
+
+@app.get("/export-sales.csv")
+def export_sales_csv(year: int | None = None, db: Session = Depends(get_db)):
+    """Verkaufsliste: jeder Verkauf eine Zeile (für Buchhaltung/Steuer)."""
+    sales = db.scalars(select(Sale).order_by(Sale.sold_at)).all()
+    if year is not None:
+        sales = [s for s in sales if s.sold_at and s.sold_at.year == year]
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, delimiter=";")
+    writer.writerow([
+        "Verkauf-Nr", "Verkauft am", "Artikelnr", "Titel", "Stueck",
+        "Verkaufspreis", "Einkauf je Stueck", "Gebuehren",
+        "Versandart", "Versandkosten", "Versand zahlt",
+        "Gewinn", "Marge %",
+        "Verkauft ueber", "Kaeufer", "Zahlungsart",
+        "Versanddienstleister", "Trackingnummer", "Notiz",
+        "Bestellt", "Versendet",
+    ])
+    for s in sales:
+        a = s.article
+        writer.writerow([
+            f"LS-{s.id:05d}",
+            s.sold_at.strftime("%d.%m.%Y") if s.sold_at else "",
+            a.article_no if a else "", a.title if a else "",
+            s.quantity,
+            f"{s.sold_price:.2f}", f"{s.unit_purchase_cost:.2f}", f"{s.fees:.2f}",
+            s.shipping_method, f"{s.shipping_cost:.2f}", s.shipping_payer,
+            f"{s.profit:.2f}", f"{s.margin:.1f}" if s.margin is not None else "",
+            s.sale_platform, s.buyer_name, s.payment_method,
+            s.tracking_carrier, s.tracking_number, s.note,
+            s.order_date.strftime("%d.%m.%Y") if s.order_date else "",
+            s.shipped_at.strftime("%d.%m.%Y") if s.shipped_at else "",
+        ])
+
+    buffer.seek(0)
     content = "﻿" + buffer.getvalue()
     suffix = f"_{year}" if year is not None else ""
     return StreamingResponse(
         io.BytesIO(content.encode("utf-8")),
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=warensystem_export{suffix}.csv"},
+        headers={"Content-Disposition": f"attachment; filename=warensystem_verkaeufe{suffix}.csv"},
     )
 
 

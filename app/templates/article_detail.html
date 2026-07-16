@@ -10,6 +10,9 @@
     <h1>{{ article.title }}</h1>
     {% if article.article_no %}<span class="badge artno">{{ article.article_no }}</span>{% endif %}
     <span class="badge status-{{ article.status | lower }}">{{ article.status }}</span>
+    <span class="badge {{ 'stock-ok' if article.in_stock else 'stock-out' }}">
+      Bestand: {{ article.quantity }}
+    </span>
     {% if article.category %}<span class="muted">· {{ article.category }}</span>{% endif %}
     {% if article.condition %}<span class="muted">· {{ article.condition }}</span>{% endif %}
     {% if article.storage_location %}
@@ -17,8 +20,8 @@
     {% endif %}
   </div>
   <div class="actions">
-    {% if not article.is_sold %}
-    <a class="btn btn-success" href="/articles/{{ article.id }}/sell">✅ Als verkauft markieren</a>
+    {% if article.in_stock %}
+    <a class="btn btn-success" href="/articles/{{ article.id }}/sell">✅ Verkauf erfassen</a>
     {% endif %}
     <a class="btn" href="/articles/{{ article.id }}/edit">Bearbeiten</a>
     {% if ebay_refresh_enabled %}
@@ -27,15 +30,12 @@
       <button class="btn" type="submit">🔄 Von eBay aktualisieren</button>
     </form>
     {% endif %}
-    {% if article.is_sold or article.status == 'Reserviert' %}
-    <a class="btn btn-primary" href="/articles/{{ article.id }}/lieferschein" target="_blank">🧾 Lieferschein</a>
-    {% endif %}
     <a class="btn" href="/articles/{{ article.id }}/label" target="_blank">🏷 QR-Etikett</a>
     <form method="post" action="/articles/{{ article.id }}/duplicate" style="display:inline">
       <button class="btn" type="submit" title="Als Vorlage kopieren">Duplizieren</button>
     </form>
     <form method="post" action="/articles/{{ article.id }}/delete"
-          onsubmit="return confirm('Artikel wirklich löschen?')" style="display:inline">
+          onsubmit="return confirm('Artikel wirklich löschen? Auch die Verkaufshistorie wird entfernt.')" style="display:inline">
       <button class="btn btn-danger" type="submit">Löschen</button>
     </form>
   </div>
@@ -78,22 +78,18 @@
   </section>
 
   <section class="card">
-    <h2>Wirtschaftlichkeit</h2>
+    <h2>Bestand &amp; Wirtschaftlichkeit</h2>
     <table class="kv">
-      <tr><td>Einkaufskosten</td><td class="num">{{ article.purchase_cost | eur }}</td></tr>
-      <tr><td>Angebotspreis</td><td class="num">{{ article.listing_price | eur }}</td></tr>
-      <tr><td>Verkaufspreis</td><td class="num">{{ article.sold_price | eur if article.is_sold else '–' }}</td></tr>
-      <tr>
-        <td>Versand ({{ article.shipping_method or '—' }}) · zahlt {{ article.shipping_payer }}</td>
-        <td class="num">{{ article.shipping_cost | eur }}{% if article.shipping_payer == 'Käufer' %} <span class="muted">(neutral)</span>{% endif %}</td>
+      <tr><td>Bestand</td><td class="num">{{ article.quantity }} Stück</td></tr>
+      <tr><td>Einkauf je Stück</td><td class="num">{{ article.purchase_cost | eur }}</td></tr>
+      <tr><td>Angebotspreis je Stück</td><td class="num">{{ article.listing_price | eur }}</td></tr>
+      <tr><td>Bestandswert (Einkauf)</td><td class="num">{{ article.stock_value | eur }}</td></tr>
+      <tr><td>Verkauft</td><td class="num">{{ article.sold_quantity }} Stück</td></tr>
+      <tr><td>Umsatz</td><td class="num">{{ article.revenue | eur }}</td></tr>
+      <tr class="total {{ 'positive' if article.total_profit and article.total_profit >= 0 else ('negative' if article.total_profit and article.total_profit < 0 else '') }}">
+        <td>Gewinn gesamt</td>
+        <td class="num">{{ article.total_profit | eur if article.total_profit is not none else '– (noch nicht verkauft)' }}</td>
       </tr>
-      <tr><td>Gebühren</td><td class="num">{{ article.fees | eur }}</td></tr>
-      <tr class="total {{ 'positive' if article.profit and article.profit >= 0 else ('negative' if article.profit and article.profit < 0 else '') }}">
-        <td>Gewinn</td><td class="num">{{ article.profit | eur if article.profit is not none else '– (noch nicht verkauft)' }}</td>
-      </tr>
-      {% if article.margin is not none %}
-      <tr><td>Marge</td><td class="num">{{ article.margin }} %</td></tr>
-      {% endif %}
     </table>
   </section>
 
@@ -121,27 +117,6 @@
     <a class="btn btn-sm" href="/articles/{{ article.id }}/label" target="_blank">🏷 Etikett drucken</a>
   </section>
 
-  {% if article.is_sold or article.buyer_name or article.tracking_number %}
-  <section class="card">
-    <h2>Käufer & Versand</h2>
-    <table class="kv">
-      <tr><td>Verkauft über</td><td>{{ article.sale_platform or '–' }}</td></tr>
-      <tr><td>Käufer</td><td>{{ article.buyer_name or '–' }}</td></tr>
-      <tr><td>Zahlungsart</td><td>{{ article.payment_method or '–' }}</td></tr>
-      <tr><td>Bestellt am</td><td>{{ article.order_date | date }}</td></tr>
-      <tr><td>Versendet am</td><td>{{ article.shipped_at | date }}</td></tr>
-      <tr>
-        <td>Sendung</td>
-        <td>
-          {% if article.tracking_number %}
-            {{ article.tracking_carrier }} {{ article.tracking_number }}
-          {% else %}<span class="muted">–</span>{% endif %}
-        </td>
-      </tr>
-    </table>
-  </section>
-  {% endif %}
-
   {% if article.note %}
   <section class="card">
     <h2>Notizen</h2>
@@ -155,14 +130,51 @@
     <p class="desc">{{ article.description }}</p>
   </section>
   {% endif %}
-
-  <section class="card">
-    <h2>Verlauf</h2>
-    <table class="kv">
-      <tr><td>Angelegt</td><td>{{ article.created_at | date }}</td></tr>
-      <tr><td>Zuletzt geändert</td><td>{{ article.updated_at | date }}</td></tr>
-      <tr><td>Verkauft am</td><td>{{ article.sold_at | date }}</td></tr>
-    </table>
-  </section>
 </div>
+
+<section class="card">
+  <h2>Verkaufshistorie ({{ article.sales|length }})</h2>
+  {% if article.sales %}
+  <div class="table-wrap">
+  <table class="data">
+    <thead>
+      <tr>
+        <th>Verkauft am</th><th class="num">Stück</th><th class="num">Erlös</th>
+        <th class="num">Gebühren</th><th class="num">Gewinn</th>
+        <th>Käufer</th><th>Plattform</th><th>Versand</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in article.sales|reverse %}
+      <tr>
+        <td>{{ s.sold_at | date }}</td>
+        <td class="num">{{ s.quantity }}</td>
+        <td class="num">{{ s.sold_price | eur }}</td>
+        <td class="num">{{ s.fees | eur }}</td>
+        <td class="num {{ 'positive' if s.profit >= 0 else 'negative' }}">{{ s.profit | eur }}</td>
+        <td>{{ s.buyer_name or '–' }}</td>
+        <td>{{ s.sale_platform or '–' }}</td>
+        <td>
+          {{ s.shipping_method or '–' }}
+          {% if s.tracking_number %}<br><span class="muted mono">{{ s.tracking_number }}</span>{% endif %}
+        </td>
+        <td><a class="btn btn-sm" href="/sales/{{ s.id }}/lieferschein" target="_blank">🧾 Lieferschein</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted">Noch keine Verkäufe erfasst.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Verlauf</h2>
+  <table class="kv">
+    <tr><td>Angelegt</td><td>{{ article.created_at | date }}</td></tr>
+    <tr><td>Zuletzt geändert</td><td>{{ article.updated_at | date }}</td></tr>
+    <tr><td>Letzter Verkauf</td><td>{{ article.last_sold_at | date }}</td></tr>
+  </table>
+</section>
 {% endblock %}

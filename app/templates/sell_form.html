@@ -8,20 +8,34 @@
 
 <p class="muted" style="margin-top:-.5rem">
   Artikel: <strong>{{ article.title }}</strong>
+  · Bestand <strong>{{ article.quantity }}</strong>
   · Angebotspreis {{ article.listing_price | eur }}
-  · Einkauf {{ article.purchase_cost | eur }}
+  · Einkauf {{ article.purchase_cost | eur }}/Stück
 </p>
+
 {% if article.storage_location %}
-<div class="banner info">📍 Lagerplatz: <strong>{{ article.storage_location }}</strong> — dort findest du den Artikel zum Packen. Der Platz wird nach dem Verkauf automatisch frei.</div>
+<div class="banner info">📍 Lagerplatz: <strong>{{ article.storage_location }}</strong> — dort findest du den Artikel zum Packen.</div>
 {% endif %}
 
 <form method="post" action="/articles/{{ article.id }}/sell" class="form">
   <fieldset>
     <legend>Verkauf</legend>
     <div class="row">
-      <label>Verkaufspreis * (€)
+      {% if article.quantity > 1 %}
+      <label>Wie viele Stück? *
+        <input type="number" name="quantity" id="quantity" min="1" max="{{ article.quantity }}" value="1" required>
+        <span class="muted">von {{ article.quantity }} verfügbar · Preis rechnet sich automatisch</span>
+      </label>
+      {% else %}
+      {# Einzelstück: Abfrage unnötig #}
+      <input type="hidden" name="quantity" id="quantity" value="1">
+      <label>Stückzahl
+        <input type="text" value="1 (Einzelstück)" disabled>
+      </label>
+      {% endif %}
+      <label>Verkaufspreis gesamt * (€)
         <input type="number" step="0.01" name="sold_price" id="sold_price" required
-               value="{{ '%.2f'|format(article.sold_price if article.sold_price > 0 else article.listing_price) }}">
+               value="{{ '%.2f'|format(article.listing_price) }}">
       </label>
       <label>Verkauft über
         <select name="sale_platform">
@@ -31,11 +45,14 @@
           {% endfor %}
         </select>
       </label>
+    </div>
+    <div class="row">
       <label>Gebühren (€)
-        <input type="number" step="0.01" name="fees" id="fees"
-               value="{{ '%.2f'|format(article.fees) }}">
+        <input type="number" step="0.01" name="fees" id="fees" value="0.00">
         <button type="button" class="link-btn" id="calc-fee">≈ {{ fee_percent }}% berechnen</button>
       </label>
+      <label></label>
+      <label></label>
     </div>
   </fieldset>
 
@@ -43,19 +60,17 @@
     <legend>Käufer</legend>
     <div class="row">
       <label>Käufer
-        <input type="text" name="buyer_name" value="{{ article.buyer_name }}">
+        <input type="text" name="buyer_name">
       </label>
       <label>Zahlungsart
-        <input type="text" name="payment_method" value="{{ article.payment_method }}"
-               placeholder="z.B. PayPal, Überweisung, bar">
+        <input type="text" name="payment_method" placeholder="z.B. PayPal, Überweisung, bar">
       </label>
       <label>Bestelldatum
-        <input type="date" name="order_date"
-               value="{{ article.order_date.strftime('%Y-%m-%d') if article.order_date else '' }}">
+        <input type="date" name="order_date">
       </label>
     </div>
     <label>Lieferadresse <span class="muted">(für den Lieferschein)</span>
-      <textarea name="buyer_address" rows="3" placeholder="Straße Nr.&#10;PLZ Ort">{{ article.buyer_address }}</textarea>
+      <textarea name="buyer_address" rows="3" placeholder="Straße Nr.&#10;PLZ Ort"></textarea>
     </label>
   </fieldset>
 
@@ -88,33 +103,34 @@
     </div>
     <div class="row">
       <label>Versendet am
-        <input type="date" name="shipped_at"
-               value="{{ article.shipped_at.strftime('%Y-%m-%d') if article.shipped_at else '' }}">
+        <input type="date" name="shipped_at">
       </label>
-      <label></label>
-      <label></label>
-    </div>
-    <div class="row">
       <label>Versanddienstleister
-        <input type="text" name="tracking_carrier" value="{{ article.tracking_carrier }}" placeholder="z.B. DHL">
+        <input type="text" name="tracking_carrier" placeholder="z.B. DHL">
       </label>
       <label>Trackingnummer
-        <input type="text" name="tracking_number" value="{{ article.tracking_number }}">
+        <input type="text" name="tracking_number">
       </label>
-      <label></label>
     </div>
-    <label>Notizen <span class="muted">(Sonderfälle, z.B. abweichender Versand, Absprachen)</span>
-      <textarea name="note" rows="2">{{ article.note }}</textarea>
+    <label>Notizen <span class="muted">(Sonderfälle, Absprachen)</span>
+      <textarea name="note" rows="2"></textarea>
     </label>
   </fieldset>
 
   <div class="form-actions">
-    <button type="submit" class="btn btn-primary">✅ Als verkauft speichern</button>
+    <button type="submit" class="btn btn-primary">✅ Verkauf speichern</button>
     <a class="btn btn-ghost" href="/articles/{{ article.id }}">Abbrechen</a>
   </div>
 </form>
 
 <script>
+  var pricePerUnit = {{ article.listing_price }};
+  // Verkaufspreis an Stückzahl anpassen (solange nicht manuell überschrieben)
+  document.getElementById('quantity').addEventListener('change', function () {
+    var q = parseInt(this.value) || 1;
+    document.getElementById('sold_price').value = (pricePerUnit * q).toFixed(2);
+  });
+
   document.getElementById('calc-fee').addEventListener('click', function () {
     var percent = {{ fee_percent }};
     var sold = parseFloat(document.getElementById('sold_price').value) || 0;

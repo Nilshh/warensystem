@@ -117,7 +117,7 @@ def fetch_item(url_or_id: str) -> dict:
     """Lädt ein eBay-Inserat und gibt ein normalisiertes Dict zurück.
 
     Keys: title, price, currency, condition, description, item_web_url,
-          ebay_item_id, image_urls (list).
+          ebay_item_id, image_urls (list), quantity.
     """
     if not import_supported():
         raise EbayError(
@@ -152,6 +152,14 @@ def fetch_item(url_or_id: str) -> dict:
     except urllib.error.URLError as e:
         raise EbayError(f"eBay nicht erreichbar: {e.reason}")
 
+    # Verfügbare Stückzahl aus dem Inserat (Standard 1)
+    quantity = 1
+    avails = item.get("estimatedAvailabilities") or []
+    if avails:
+        qty = avails[0].get("estimatedAvailableQuantity")
+        if isinstance(qty, int) and qty > 0:
+            quantity = qty
+
     price = item.get("price") or {}
     images = []
     if item.get("image", {}).get("imageUrl"):
@@ -173,6 +181,7 @@ def fetch_item(url_or_id: str) -> dict:
         "item_web_url": item.get("itemWebUrl", ""),
         "ebay_item_id": item_id,
         "image_urls": images[:12],
+        "quantity": quantity,
     }
 
 

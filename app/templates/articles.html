@@ -81,8 +81,9 @@
       {{ sorthead('title', 'Titel') }}
       {{ sorthead('status', 'Status') }}
       {{ sorthead('storage_area', 'Lager') }}
+      {{ sorthead('quantity', 'Bestand', 'num') }}
       {{ sorthead('listing_price', 'Angebot', 'num') }}
-      {{ sorthead('sold_price', 'Verkauft', 'num') }}
+      <th class="num">Umsatz</th>
       <th class="num">Gewinn</th>
       <th>Plattformen</th>
     </tr>
@@ -117,10 +118,13 @@
            onclick="event.stopPropagation()">{{ a.storage_location }}</a>
         {% else %}–{% endif %}
       </td>
+      <td class="num">
+        <span class="badge {{ 'stock-ok' if a.in_stock else 'stock-out' }}">{{ a.quantity }}</span>
+      </td>
       <td class="num">{{ a.listing_price | eur }}</td>
-      <td class="num">{{ (a.sold_price | eur) if a.is_sold else '–' }}</td>
-      <td class="num {{ 'positive' if a.profit and a.profit >= 0 else ('negative' if a.profit and a.profit < 0 else '') }}">
-        {{ a.profit | eur if a.profit is not none else '–' }}
+      <td class="num">{{ (a.revenue | eur) if a.has_sales else '–' }}</td>
+      <td class="num {{ 'positive' if a.total_profit and a.total_profit >= 0 else ('negative' if a.total_profit and a.total_profit < 0 else '') }}">
+        {{ a.total_profit | eur if a.total_profit is not none else '–' }}
       </td>
       <td class="platforms">
         {% if a.ebay_url %}<a href="{{ a.ebay_url }}" target="_blank" onclick="event.stopPropagation()" class="tag ebay">eBay</a>{% endif %}

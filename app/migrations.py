@@ -16,6 +16,7 @@ from sqlalchemy.engine import Engine
 _EXPECTED = {
     "articles": {
         "article_no": "VARCHAR(20) DEFAULT ''",
+        "quantity": "INTEGER DEFAULT 1",
         "shipping_payer": "VARCHAR(20) DEFAULT 'Käufer'",
         "storage_area": "VARCHAR(80) DEFAULT ''",
         "storage_shelf": "VARCHAR(40) DEFAULT ''",

@@ -49,6 +49,7 @@ class Article(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     article_no: Mapped[str] = mapped_column(String(20), default="", index=True)  # interne Artikelnummer
     title: Mapped[str] = mapped_column(String(200))
+    quantity: Mapped[int] = mapped_column(default=1)  # verfügbarer Bestand (Stück)
     description: Mapped[str] = mapped_column(Text, default="")
     category: Mapped[str] = mapped_column(String(100), default="")
     condition: Mapped[str] = mapped_column(String(50), default="")
@@ -56,12 +57,11 @@ class Article(Base):
 
     # Preise & Kosten
     purchase_cost: Mapped[float] = mapped_column(Float, default=0.0)   # Einkaufskosten
-    listing_price: Mapped[float] = mapped_column(Float, default=0.0)   # Angebotspreis
-    sold_price: Mapped[float] = mapped_column(Float, default=0.0)      # tatsächlicher Verkaufspreis
+    listing_price: Mapped[float] = mapped_column(Float, default=0.0)   # Angebotspreis je Stück
+    # Vorbelegung für neue Verkäufe (der Verkauf speichert seine eigenen Werte)
     shipping_method: Mapped[str] = mapped_column(String(100), default="")
-    shipping_cost: Mapped[float] = mapped_column(Float, default=0.0)   # Versandkosten
-    shipping_payer: Mapped[str] = mapped_column(String(20), default="Käufer")  # wer zahlt Versand
-    fees: Mapped[float] = mapped_column(Float, default=0.0)            # Plattformgebühren
+    shipping_cost: Mapped[float] = mapped_column(Float, default=0.0)
+    shipping_payer: Mapped[str] = mapped_column(String(20), default="Käufer")
 
     # Plattform-Links (parallel möglich)
     ebay_url: Mapped[str] = mapped_column(String(500), default="")
@@ -78,21 +78,25 @@ class Article(Base):
     storage_shelf: Mapped[str] = mapped_column(String(40), default="")   # Regal
     storage_bin: Mapped[str] = mapped_column(String(40), default="")     # Fach
 
-    # Käufer- & Versandabwicklung
-    sale_platform: Mapped[str] = mapped_column(String(30), default="")   # verkauft über
-    buyer_name: Mapped[str] = mapped_column(String(150), default="")
-    buyer_address: Mapped[str] = mapped_column(Text, default="")         # Lieferadresse
-    payment_method: Mapped[str] = mapped_column(String(80), default="")
-    tracking_carrier: Mapped[str] = mapped_column(String(80), default="")
-    tracking_number: Mapped[str] = mapped_column(String(100), default="")
-    order_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    shipped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-
     # Freies Notizfeld für Sonderfälle
     note: Mapped[str] = mapped_column(Text, default="")
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
+
+    # --- Alt-Felder (vor Einführung der Verkaufshistorie) --------------------
+    # Werden nur noch von der einmaligen Datenmigration gelesen; neue Verkäufe
+    # landen ausschließlich in der Tabelle `sales`.
+    sold_price: Mapped[float] = mapped_column(Float, default=0.0)
+    fees: Mapped[float] = mapped_column(Float, default=0.0)
+    sale_platform: Mapped[str] = mapped_column(String(30), default="")
+    buyer_name: Mapped[str] = mapped_column(String(150), default="")
+    buyer_address: Mapped[str] = mapped_column(Text, default="")
+    payment_method: Mapped[str] = mapped_column(String(80), default="")
+    tracking_carrier: Mapped[str] = mapped_column(String(80), default="")
+    tracking_number: Mapped[str] = mapped_column(String(100), default="")
+    order_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    shipped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     sold_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     images: Mapped[list["ArticleImage"]] = relationship(
@@ -100,31 +104,46 @@ class Article(Base):
         cascade="all, delete-orphan",
         order_by="ArticleImage.position, ArticleImage.id",
     )
+    sales: Mapped[list["Sale"]] = relationship(
+        back_populates="article",
+        cascade="all, delete-orphan",
+        order_by="Sale.sold_at",
+    )
+
+    # --- Kennzahlen aus der Verkaufshistorie ---------------------------------
+    @property
+    def has_sales(self) -> bool:
+        return bool(self.sales)
 
     @property
-    def is_sold(self) -> bool:
-        """Verkauft = hat ein Verkaufsdatum (bleibt auch nach Archivierung wahr)."""
-        return self.sold_at is not None
+    def in_stock(self) -> bool:
+        return self.quantity > 0
 
     @property
-    def profit(self) -> float | None:
-        """Gewinn nach Kosten & Gebühren (sobald verkauft, auch archiviert).
+    def sold_quantity(self) -> int:
+        return sum(s.quantity for s in self.sales)
 
-        Versandkosten mindern den Gewinn nur, wenn der Verkäufer sie trägt.
-        Zahlt der Käufer (Standard), sind sie durchlaufend und neutral.
-        """
-        if self.sold_at is None:
+    @property
+    def revenue(self) -> float:
+        """Summe aller Verkaufserlöse dieses Artikels."""
+        return round(sum(s.sold_price for s in self.sales), 2)
+
+    @property
+    def total_profit(self) -> float | None:
+        """Summe der Gewinne aller Verkäufe (None, wenn noch nichts verkauft)."""
+        if not self.sales:
             return None
-        ship = self.shipping_cost if self.shipping_payer == "Verkäufer" else 0.0
-        return round(self.sold_price - self.purchase_cost - ship - self.fees, 2)
+        return round(sum(s.profit for s in self.sales), 2)
 
     @property
-    def margin(self) -> float | None:
-        """Gewinnmarge in % vom Verkaufspreis (nur wenn verkauft & Preis > 0)."""
-        p = self.profit
-        if p is None or self.sold_price <= 0:
-            return None
-        return round(p / self.sold_price * 100, 1)
+    def last_sold_at(self) -> datetime | None:
+        dates = [s.sold_at for s in self.sales if s.sold_at]
+        return max(dates) if dates else None
+
+    @property
+    def stock_value(self) -> float:
+        """Im Bestand gebundenes Kapital (Einkauf × Stück)."""
+        return round(self.purchase_cost * self.quantity, 2)
 
     @property
     def tag_list(self) -> list[str]:
@@ -134,6 +153,54 @@ class Article(Base):
     def storage_location(self) -> str:
         """Lagerplatz als kompakter Text (leere Teile werden ausgelassen)."""
         return format_storage_label(self.storage_area, self.storage_shelf, self.storage_bin)
+
+
+class Sale(Base):
+    """Ein einzelner Verkaufsvorgang zu einem Artikel."""
+    __tablename__ = "sales"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id", ondelete="CASCADE"), index=True)
+
+    quantity: Mapped[int] = mapped_column(default=1)          # verkaufte Stückzahl
+    sold_price: Mapped[float] = mapped_column(Float, default=0.0)        # Gesamterlös dieses Verkaufs
+    unit_purchase_cost: Mapped[float] = mapped_column(Float, default=0.0)  # Einkauf je Stück (Snapshot)
+    fees: Mapped[float] = mapped_column(Float, default=0.0)
+
+    shipping_method: Mapped[str] = mapped_column(String(100), default="")
+    shipping_cost: Mapped[float] = mapped_column(Float, default=0.0)
+    shipping_payer: Mapped[str] = mapped_column(String(20), default="Käufer")
+
+    sale_platform: Mapped[str] = mapped_column(String(30), default="")
+    buyer_name: Mapped[str] = mapped_column(String(150), default="")
+    buyer_address: Mapped[str] = mapped_column(Text, default="")
+    payment_method: Mapped[str] = mapped_column(String(80), default="")
+    tracking_carrier: Mapped[str] = mapped_column(String(80), default="")
+    tracking_number: Mapped[str] = mapped_column(String(100), default="")
+    note: Mapped[str] = mapped_column(Text, default="")
+
+    order_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    shipped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    sold_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+    article: Mapped["Article"] = relationship(back_populates="sales")
+
+    @property
+    def profit(self) -> float:
+        """Gewinn dieses Verkaufs.
+
+        Versandkosten mindern den Gewinn nur, wenn der Verkäufer sie trägt.
+        """
+        ship = self.shipping_cost if self.shipping_payer == "Verkäufer" else 0.0
+        return round(
+            self.sold_price - self.unit_purchase_cost * self.quantity - ship - self.fees, 2
+        )
+
+    @property
+    def margin(self) -> float | None:
+        if self.sold_price <= 0:
+            return None
+        return round(self.profit / self.sold_price * 100, 1)
 
 
 def format_storage_label(area: str, shelf: str, bin_: str) -> str:

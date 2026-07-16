@@ -12,9 +12,12 @@ LXC-Container im Proxmox-Cluster. Bedienung über die **Web-UI**.
 
 - Artikelverwaltung (Titel, Kategorie, Zustand, Beschreibung, Status, **Tags**)
 - **Automatische Artikelnummer** beim Anlegen (Präfix per `.env`, z.B. `WA-00001`)
-- **Geführter Verkauf-Workflow** und **automatische Archivierung** verkaufter Artikel
-  nach einstellbarer Frist (`ARCHIVE_AFTER_DAYS`, Standard 7 Tage; Verkäufe zählen
-  in der Statistik weiter)
+- **Bestand & Verkaufshistorie**: Ein Artikel kann mehrfach vorhanden sein
+  (Stückzahl). Jeder Verkauf wird einzeln erfasst (Stückzahl, Käufer, Preis,
+  Gebühren, Versand) und reduziert den Bestand — mit voller Historie je Artikel.
+- **Geführter Verkauf-Workflow** und **automatische Archivierung** ausverkaufter
+  Artikel nach einstellbarer Frist (`ARCHIVE_AFTER_DAYS`, Standard 7 Tage;
+  Verkäufe zählen in der Statistik weiter)
 - **Bilder-Upload** pro Artikel, inkl. **Hauptbild festlegen**
 - Links + Angebots-Status für **eBay** und **Kleinanzeigen** (parallel)
 - **Preise & Kosten**: Einkauf, Angebotspreis, Verkaufspreis, Versandart (Dropdown), Versandkosten, Gebühren
@@ -33,7 +36,8 @@ LXC-Container im Proxmox-Cluster. Bedienung über die **Web-UI**.
   Artikelseite verweist (Ziel-URL via `BASE_URL` in der `.env`)
 - **Lieferschein/Packzettel** pro verkauftem Artikel — druckoptimiert (Browser → „Als PDF speichern")
 - **Massen-Statusänderung**: mehrere Artikel auswählen und Status gemeinsam setzen
-- **CSV-Export** (Excel-kompatibel, optional pro Jahr — für Buchhaltung/Steuer)
+- **CSV-Export** (Excel-kompatibel): **Bestandsliste** (Artikel mit Bestand/Wert)
+  und **Verkaufsliste** (jeder Verkauf eine Zeile, optional pro Jahr — für Buchhaltung/Steuer)
 - **Import per eBay-Link** (Browse API): Titel, Preis, Zustand, Beschreibung und Bilder
   aus einem Inserat übernehmen — aktiv, sobald App-Keys hinterlegt sind
 - eBay-Verkaufs-Sync im Code **vorbereitet** (siehe `app/ebay.py`), Kleinanzeigen bleibt manuell

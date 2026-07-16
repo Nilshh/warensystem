@@ -22,7 +22,7 @@
   <div class="card kpi">
     <span class="kpi-label">Umsatz {{ year }}</span>
     <span class="kpi-value">{{ umsatz | eur }}</span>
-    <span class="kpi-sub">{{ verkauft_anzahl }} Artikel verkauft</span>
+    <span class="kpi-sub">{{ verkauft_anzahl }} Stück verkauft</span>
   </div>
   <div class="card kpi">
     <span class="kpi-label">Kosten {{ year }}</span>
@@ -35,14 +35,14 @@
     <span class="kpi-sub">Umsatz − Kosten</span>
   </div>
   <div class="card kpi">
-    <span class="kpi-label">Offen im Angebot</span>
-    <span class="kpi-value">{{ offen_anzahl }}</span>
-    <span class="kpi-sub">Pot. Umsatz {{ potenzieller_umsatz | eur }}</span>
+    <span class="kpi-label">Bestand</span>
+    <span class="kpi-value">{{ bestand_stueck }}</span>
+    <span class="kpi-sub">Stück in {{ offen_anzahl }} Artikeln · Pot. Umsatz {{ potenzieller_umsatz | eur }}</span>
   </div>
   <div class="card kpi">
     <span class="kpi-label">Gebundenes Kapital</span>
     <span class="kpi-value">{{ gebundenes_kapital | eur }}</span>
-    <span class="kpi-sub">Einkauf offener Artikel</span>
+    <span class="kpi-sub">Einkauf × Bestand</span>
   </div>
   <div class="card kpi">
     <span class="kpi-label">Artikel gesamt</span>
@@ -81,7 +81,7 @@
   <details class="table-toggle">
     <summary>Als Tabelle anzeigen</summary>
     <table class="data compact">
-      <thead><tr><th>Monat</th><th class="num">Verkäufe</th><th class="num">Umsatz</th><th class="num">Gewinn</th></tr></thead>
+      <thead><tr><th>Monat</th><th class="num">Stück</th><th class="num">Umsatz</th><th class="num">Gewinn</th></tr></thead>
       <tbody>
         {% for m in monthly %}
         <tr>
@@ -111,8 +111,9 @@
 <section class="card">
   <h2>Werkzeuge</h2>
   <div class="toolbar">
-    <a class="btn" href="/export.csv">⬇ CSV-Export (alle)</a>
-    <a class="btn" href="/export.csv?year={{ year }}">⬇ CSV-Export {{ year }}</a>
+    <a class="btn" href="/export.csv">⬇ Bestandsliste (CSV)</a>
+    <a class="btn" href="/export-sales.csv">⬇ Verkäufe gesamt (CSV)</a>
+    <a class="btn" href="/export-sales.csv?year={{ year }}">⬇ Verkäufe {{ year }} (CSV)</a>
     {% if ebay_configured %}
       <form method="post" action="/ebay/sync" style="display:inline">
         <button class="btn" type="submit">🔄 eBay synchronisieren</button>
