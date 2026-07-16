@@ -158,7 +158,10 @@
           {{ s.shipping_method or '–' }}
           {% if s.tracking_number %}<br><span class="muted mono">{{ s.tracking_number }}</span>{% endif %}
         </td>
-        <td><a class="btn btn-sm" href="/sales/{{ s.id }}/lieferschein" target="_blank">🧾 Lieferschein</a></td>
+        <td class="row-actions">
+          <a class="btn btn-sm" href="/sales/{{ s.id }}/edit">Bearbeiten</a>
+          <a class="btn btn-sm" href="/sales/{{ s.id }}/lieferschein" target="_blank">🧾</a>
+        </td>
       </tr>
       {% endfor %}
     </tbody>

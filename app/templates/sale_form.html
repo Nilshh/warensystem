@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Verkauf bearbeiten · Warenwirtschaft{% endblock %}
+{% block content %}
+{% if request.query_params.get('error') %}
+<div class="banner error">⚠ {{ request.query_params.get('error') }}</div>
+{% endif %}
+
+<div class="page-head">
+  <h1>Verkauf bearbeiten</h1>
+  <a class="btn btn-ghost" href="/sales">Abbrechen</a>
+</div>
+
+<p class="muted" style="margin-top:-.5rem">
+  {% if article %}
+  Artikel: <a href="/articles/{{ article.id }}"><strong>{{ article.title }}</strong></a>
+  · aktueller Bestand {{ article.quantity }}
+  {% endif %}
+  · Verkauf-Nr. LS-{{ '%05d' % sale.id }}
+</p>
+
+<div class="banner info">
+  Änderst du die Stückzahl, wird der <strong>Bestand automatisch mitkorrigiert</strong>.
+</div>
+
+<form method="post" action="/sales/{{ sale.id }}/edit" class="form">
+  <fieldset>
+    <legend>Verkauf</legend>
+    <div class="row">
+      <label>Stückzahl *
+        <input type="number" name="quantity" min="1" max="{{ max_qty }}" value="{{ sale.quantity }}" required>
+        <span class="muted">max. {{ max_qty }}</span>
+      </label>
+      <label>Verkaufspreis gesamt * (€)
+        <input type="number" step="0.01" name="sold_price" id="sold_price" required
+               value="{{ '%.2f'|format(sale.sold_price) }}">
+      </label>
+      <label>Verkauft am
+        <input type="date" name="sold_at"
+               value="{{ sale.sold_at.strftime('%Y-%m-%d') if sale.sold_at else '' }}">
+      </label>
+    </div>
+    <div class="row">
+      <label>Einkauf je Stück (€)
+        <input type="number" step="0.01" name="unit_purchase_cost"
+               value="{{ '%.2f'|format(sale.unit_purchase_cost) }}">
+      </label>
+      <label>Gebühren (€)
+        <input type="number" step="0.01" name="fees" id="fees"
+               value="{{ '%.2f'|format(sale.fees) }}">
+        <button type="button" class="link-btn" id="calc-fee">≈ {{ fee_percent }}% berechnen</button>
+      </label>
+      <label>Verkauft über
+        <select name="sale_platform">
+          <option value="">–</option>
+          {% for p in sale_platforms %}
+          <option value="{{ p }}" {{ 'selected' if sale.sale_platform == p else '' }}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Käufer</legend>
+    <div class="row">
+      <label>Käufer
+        <input type="text" name="buyer_name" value="{{ sale.buyer_name }}">
+      </label>
+      <label>Zahlungsart
+        <input type="text" name="payment_method" value="{{ sale.payment_method }}">
+      </label>
+      <label>Bestelldatum
+        <input type="date" name="order_date"
+               value="{{ sale.order_date.strftime('%Y-%m-%d') if sale.order_date else '' }}">
+      </label>
+    </div>
+    <label>Lieferadresse
+      <textarea name="buyer_address" rows="3">{{ sale.buyer_address }}</textarea>
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Versand</legend>
+    <div class="row">
+      <label>Versandart
+        <select name="shipping_method" id="shipping_method">
+          <option value="">– bitte wählen –</option>
+          {% for o in shipping_options %}
+          <option value="{{ o.label }}" data-cost="{{ '%.2f'|format(o.cost) }}"
+                  {{ 'selected' if sale.shipping_method == o.label else '' }}>{{ o.label }} ({{ '%.2f'|format(o.cost) }} €)</option>
+          {% endfor %}
+          {% if sale.shipping_method and sale.shipping_method not in shipping_methods %}
+          <option value="{{ sale.shipping_method }}" selected>{{ sale.shipping_method }}</option>
+          {% endif %}
+        </select>
+      </label>
+      <label>Versandkosten (€)
+        <input type="number" step="0.01" name="shipping_cost" id="shipping_cost"
+               value="{{ '%.2f'|format(sale.shipping_cost) }}">
+      </label>
+      <label>Versandkosten trägt
+        <select name="shipping_payer">
+          {% for p in shipping_payers %}
+          <option value="{{ p }}" {{ 'selected' if sale.shipping_payer == p else '' }}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="row">
+      <label>Versendet am
+        <input type="date" name="shipped_at"
+               value="{{ sale.shipped_at.strftime('%Y-%m-%d') if sale.shipped_at else '' }}">
+      </label>
+      <label>Versanddienstleister
+        <input type="text" name="tracking_carrier" value="{{ sale.tracking_carrier }}">
+      </label>
+      <label>Trackingnummer
+        <input type="text" name="tracking_number" value="{{ sale.tracking_number }}">
+      </label>
+    </div>
+    <label>Notizen
+      <textarea name="note" rows="2">{{ sale.note }}</textarea>
+    </label>
+  </fieldset>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Speichern</button>
+    <a class="btn btn-ghost" href="/sales">Abbrechen</a>
+  </div>
+</form>
+
+<form method="post" action="/sales/{{ sale.id }}/delete" style="margin-top:1rem"
+      onsubmit="return confirm('Verkauf wirklich löschen? Die {{ sale.quantity }} Stück werden dem Bestand wieder gutgeschrieben.')">
+  <button class="btn btn-danger" type="submit">Verkauf löschen (Bestand zurückbuchen)</button>
+</form>
+
+<script>
+  document.getElementById('calc-fee').addEventListener('click', function () {
+    var percent = {{ fee_percent }};
+    var sold = parseFloat(document.getElementById('sold_price').value) || 0;
+    document.getElementById('fees').value = (sold * percent / 100).toFixed(2);
+  });
+  document.getElementById('shipping_method').addEventListener('change', function () {
+    var opt = this.options[this.selectedIndex];
+    var cost = opt.getAttribute('data-cost');
+    if (cost !== null) document.getElementById('shipping_cost').value = cost;
+  });
+</script>
+{% endblock %}

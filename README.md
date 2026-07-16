@@ -15,6 +15,9 @@ LXC-Container im Proxmox-Cluster. Bedienung über die **Web-UI**.
 - **Bestand & Verkaufshistorie**: Ein Artikel kann mehrfach vorhanden sein
   (Stückzahl). Jeder Verkauf wird einzeln erfasst (Stückzahl, Käufer, Preis,
   Gebühren, Versand) und reduziert den Bestand — mit voller Historie je Artikel.
+- **Verkäufe-Reiter**: eigene Übersicht aller Verkäufe mit Suche/Jahresfilter;
+  Verkäufe lassen sich **nachträglich korrigieren oder löschen** — der Bestand
+  wird dabei automatisch mitgeführt.
 - **Geführter Verkauf-Workflow** und **automatische Archivierung** ausverkaufter
   Artikel nach einstellbarer Frist (`ARCHIVE_AFTER_DAYS`, Standard 7 Tage;
   Verkäufe zählen in der Statistik weiter)

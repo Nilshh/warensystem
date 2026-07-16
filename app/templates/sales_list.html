@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Verkäufe · Warenwirtschaft{% endblock %}
+{% block content %}
+{% if msg %}<div class="banner success">✔ {{ msg }}</div>{% endif %}
+{% if error %}<div class="banner error">⚠ {{ error }}</div>{% endif %}
+
+<div class="page-head">
+  <h1>Verkäufe</h1>
+</div>
+
+<form class="filterbar" method="get" action="/sales">
+  <input type="text" name="q" value="{{ q }}" placeholder="Suche nach Käufer, Titel oder Artikelnummer…">
+  <select name="year">
+    <option value="">Alle Jahre</option>
+    {% for y in years %}
+    <option value="{{ y }}" {{ 'selected' if y == year else '' }}>{{ y }}</option>
+    {% endfor %}
+  </select>
+  <button class="btn" type="submit">Filtern</button>
+  <a class="btn btn-ghost" href="/sales">Zurücksetzen</a>
+</form>
+
+<section class="cards">
+  <div class="card kpi">
+    <span class="kpi-label">Umsatz</span>
+    <span class="kpi-value">{{ umsatz | eur }}</span>
+    <span class="kpi-sub">{{ sales|length }} Verkäufe · {{ stueck }} Stück</span>
+  </div>
+  <div class="card kpi {{ 'positive' if gewinn >= 0 else 'negative' }}">
+    <span class="kpi-label">Gewinn</span>
+    <span class="kpi-value">{{ gewinn | eur }}</span>
+    <span class="kpi-sub">{{ 'im Jahr ' ~ year if year else 'gesamt' }}</span>
+  </div>
+</section>
+
+{% if sales %}
+<div class="table-wrap">
+<table class="data">
+  <thead>
+    <tr>
+      <th>Verkauft am</th><th>Artikel</th><th class="num">Stück</th>
+      <th class="num">Erlös</th><th class="num">Gebühren</th><th class="num">Gewinn</th>
+      <th>Käufer</th><th>Plattform</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for s in sales %}
+    <tr>
+      <td>{{ s.sold_at | date }}</td>
+      <td>
+        {% if s.article %}
+        <a href="/articles/{{ s.article.id }}"><span class="mono">{{ s.article.article_no }}</span> {{ s.article.title }}</a>
+        {% else %}<span class="muted">– gelöscht –</span>{% endif %}
+      </td>
+      <td class="num">{{ s.quantity }}</td>
+      <td class="num">{{ s.sold_price | eur }}</td>
+      <td class="num">{{ s.fees | eur }}</td>
+      <td class="num {{ 'positive' if s.profit >= 0 else 'negative' }}">{{ s.profit | eur }}</td>
+      <td>{{ s.buyer_name or '–' }}</td>
+      <td>{{ s.sale_platform or '–' }}</td>
+      <td class="row-actions">
+        <a class="btn btn-sm" href="/sales/{{ s.id }}/edit">Bearbeiten</a>
+        <a class="btn btn-sm" href="/sales/{{ s.id }}/lieferschein" target="_blank">🧾</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty"><p>Keine Verkäufe gefunden.</p></div>
+{% endif %}
+{% endblock %}
