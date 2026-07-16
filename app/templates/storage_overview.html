@@ -46,6 +46,19 @@
       </form>
       {% endif %}
     </div>
+
+    <details class="storage-edit">
+      <summary>Bearbeiten</summary>
+      <form method="post" action="/storage/{{ loc.id }}/edit" class="storage-new">
+        <label>Bereich <input type="text" name="area" value="{{ loc.area }}"></label>
+        <label>Regal <input type="text" name="shelf" value="{{ loc.shelf }}"></label>
+        <label>Fach <input type="text" name="bin" value="{{ loc.bin }}"></label>
+        <button class="btn btn-primary btn-sm" type="submit">Speichern</button>
+      </form>
+      {% if loc.articles|length > 0 %}
+      <p class="hint">Die {{ loc.articles|length }} zugeordneten Artikel werden automatisch mit umbenannt.</p>
+      {% endif %}
+    </details>
   </section>
   {% endfor %}
 </div>

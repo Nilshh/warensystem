@@ -170,6 +170,9 @@ table.kv tr.total td { font-weight: 700; font-size: 1rem; padding-top: .7rem; bo
 .storage-items li:last-child { border-bottom: none; }
 .badge.sm { font-size: .68rem; padding: .1rem .45rem; }
 .storage-loc-actions { display: flex; gap: .4rem; }
+.storage-edit { margin-top: .6rem; }
+.storage-edit summary { cursor: pointer; color: var(--primary); font-size: .85rem; }
+.storage-edit .storage-new { margin-top: .6rem; }
 .storage-new { display: flex; gap: .75rem; flex-wrap: wrap; align-items: flex-end; }
 .storage-new label { display: flex; flex-direction: column; font-size: .82rem; gap: .25rem; }
 .storage-new input { padding: .45rem .55rem; border: 1px solid var(--border); border-radius: 8px; font-size: .9rem; }

@@ -850,6 +850,45 @@ async def storage_new(
     return RedirectResponse("/storage", status_code=303)
 
 
+@app.post("/storage/{loc_id}/edit")
+async def storage_edit(
+    loc_id: int, area: str = Form(""), shelf: str = Form(""), bin: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    loc = db.get(StorageLocation, loc_id)
+    if not loc:
+        return RedirectResponse("/storage", status_code=303)
+    area, shelf, bin = area.strip(), shelf.strip(), bin.strip()
+    if not (area or shelf or bin):
+        msg = urllib.parse.quote("Bitte mindestens Bereich, Regal oder Fach angeben.")
+        return RedirectResponse(f"/storage?error={msg}", status_code=303)
+    # Dublette vermeiden (anderer Lagerplatz mit denselben Werten)
+    other = db.scalar(
+        select(StorageLocation).where(
+            StorageLocation.area == area, StorageLocation.shelf == shelf,
+            StorageLocation.bin == bin, StorageLocation.id != loc_id,
+        )
+    )
+    if other:
+        msg = urllib.parse.quote("Es gibt bereits einen Lagerplatz mit diesen Werten.")
+        return RedirectResponse(f"/storage?error={msg}", status_code=303)
+
+    # zugeordnete Artikel mitziehen
+    old = (loc.area, loc.shelf, loc.bin)
+    if old != (area, shelf, bin):
+        for a in db.scalars(
+            select(Article).where(
+                Article.storage_area == old[0],
+                Article.storage_shelf == old[1],
+                Article.storage_bin == old[2],
+            )
+        ).all():
+            a.storage_area, a.storage_shelf, a.storage_bin = area, shelf, bin
+        loc.area, loc.shelf, loc.bin = area, shelf, bin
+        db.commit()
+    return RedirectResponse("/storage", status_code=303)
+
+
 @app.post("/storage/{loc_id}/delete")
 def storage_delete(loc_id: int, db: Session = Depends(get_db)):
     loc = db.get(StorageLocation, loc_id)
