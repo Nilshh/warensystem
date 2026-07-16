@@ -9,8 +9,11 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import qrcode
+import qrcode.image.svg
 from fastapi import FastAPI, Depends, Request, Form, UploadFile, File, HTTPException
-from fastapi.responses import RedirectResponse, StreamingResponse, HTMLResponse
+from fastapi.responses import RedirectResponse, StreamingResponse, HTMLResponse, Response
+from markupsafe import Markup
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
@@ -647,6 +650,40 @@ def refresh_from_ebay(article_id: int, db: Session = Depends(get_db)):
     else:
         note = "Von eBay aktualisiert. Preis unverändert."
     return RedirectResponse(f"/articles/{article_id}?msg={urllib.parse.quote(note)}", status_code=303)
+
+
+def _article_url(article_id: int) -> str:
+    return f"{config.BASE_URL}/articles/{article_id}"
+
+
+def make_qr_svg(data: str) -> str:
+    """Erzeugt einen QR-Code als SVG-String (ohne Bild-Abhängigkeit)."""
+    img = qrcode.make(data, image_factory=qrcode.image.svg.SvgPathImage, box_size=10, border=2)
+    buf = io.BytesIO()
+    img.save(buf)
+    return buf.getvalue().decode("utf-8")
+
+
+@app.get("/articles/{article_id}/qr.svg")
+def article_qr(article_id: int, db: Session = Depends(get_db)):
+    _get_article(db, article_id)  # 404, falls es den Artikel nicht gibt
+    svg = make_qr_svg(_article_url(article_id))
+    return Response(content=svg, media_type="image/svg+xml")
+
+
+@app.get("/articles/{article_id}/label", response_class=HTMLResponse)
+def article_label(article_id: int, request: Request, db: Session = Depends(get_db)):
+    """Druckbares Etikett mit QR-Code, Artikelnummer und Titel."""
+    article = _get_article(db, article_id)
+    return templates.TemplateResponse(
+        "label.html",
+        {
+            "request": request,
+            "article": article,
+            "url": _article_url(article_id),
+            "qr_svg": Markup(make_qr_svg(_article_url(article_id))),
+        },
+    )
 
 
 @app.get("/articles/{article_id}/lieferschein", response_class=HTMLResponse)

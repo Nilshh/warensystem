@@ -24,6 +24,8 @@ LXC-Container im Proxmox-Cluster. Bedienung über die **Web-UI**.
   Status-Übersicht und **Monats-Diagramm** (Umsatz & Gewinn)
 - **Artikelliste** mit Suche, Status-/Tag-Filter und **sortierbaren Spalten**
 - **Artikel duplizieren** (als Vorlage)
+- **QR-Etikett** pro Artikel — druckbares Etikett, dessen QR-Code auf die
+  Artikelseite verweist (Ziel-URL via `BASE_URL` in der `.env`)
 - **Lieferschein/Packzettel** pro verkauftem Artikel — druckoptimiert (Browser → „Als PDF speichern")
 - **Massen-Statusänderung**: mehrere Artikel auswählen und Status gemeinsam setzen
 - **CSV-Export** (Excel-kompatibel, optional pro Jahr — für Buchhaltung/Steuer)

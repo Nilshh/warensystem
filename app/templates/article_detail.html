@@ -27,6 +27,7 @@
     {% if article.is_sold or article.status == 'Reserviert' %}
     <a class="btn btn-primary" href="/articles/{{ article.id }}/lieferschein" target="_blank">🧾 Lieferschein</a>
     {% endif %}
+    <a class="btn" href="/articles/{{ article.id }}/label" target="_blank">🏷 QR-Etikett</a>
     <form method="post" action="/articles/{{ article.id }}/duplicate" style="display:inline">
       <button class="btn" type="submit" title="Als Vorlage kopieren">Duplizieren</button>
     </form>
@@ -108,6 +109,13 @@
         <td>{% if article.kleinanzeigen_url %}<a href="{{ article.kleinanzeigen_url }}" target="_blank">Anzeige öffnen ↗</a>{% else %}<span class="muted">kein Link</span>{% endif %}</td>
       </tr>
     </table>
+  </section>
+
+  <section class="card qr-card">
+    <h2>QR-Code</h2>
+    <img class="qr-preview" src="/articles/{{ article.id }}/qr.svg" alt="QR-Code">
+    <p class="muted">Verweist auf diese Artikelseite.</p>
+    <a class="btn btn-sm" href="/articles/{{ article.id }}/label" target="_blank">🏷 Etikett drucken</a>
   </section>
 
   {% if article.is_sold or article.buyer_name or article.tracking_number %}

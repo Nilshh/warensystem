@@ -131,6 +131,8 @@ table.kv td:first-child { color: var(--muted); }
 table.kv tr:last-child td { border-bottom: none; }
 table.kv tr.total td { font-weight: 700; font-size: 1rem; padding-top: .7rem; border-top: 2px solid var(--border); }
 .desc { white-space: pre-wrap; margin: 0; }
+.qr-card { text-align: center; }
+.qr-preview { width: 150px; height: 150px; display: block; margin: 0 auto .5rem; }
 
 .gallery { display: flex; flex-wrap: wrap; gap: .6rem; margin-bottom: .8rem; }
 .gallery-item { position: relative; }

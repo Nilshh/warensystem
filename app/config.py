@@ -19,6 +19,9 @@ ARCHIVE_AFTER_DAYS = int(os.getenv("ARCHIVE_AFTER_DAYS", "7"))
 # Präfix der automatischen Artikelnummer (z.B. WA-00001)
 ARTICLE_NO_PREFIX = os.getenv("ARTICLE_NO_PREFIX", "WA-")
 
+# Basis-URL für QR-Codes/Etiketten (ohne abschließenden Slash)
+BASE_URL = os.getenv("BASE_URL", "http://wa.home").rstrip("/")
+
 # Absenderdaten für Lieferschein/Packzettel
 SELLER_NAME = os.getenv("SELLER_NAME", "")
 SELLER_ADDRESS = os.getenv("SELLER_ADDRESS", "")   # mehrzeilig via \n
