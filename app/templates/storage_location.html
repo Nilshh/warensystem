@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Lager: {{ label or 'Lagerort' }} · Warenwirtschaft{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <a class="muted" href="/storage">← Lagerübersicht</a>
+    <h1>📍 {{ label or 'Lagerort' }}</h1>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/storage/label?{{ query }}" target="_blank">🏷 QR-Etikett</a>
+  </div>
+</div>
+
+<p class="muted">Das sollte hier liegen ({{ articles|length }} Artikel):</p>
+
+{% if articles %}
+<div class="table-wrap">
+<table class="data">
+  <thead>
+    <tr><th>Nr.</th><th>Bild</th><th>Titel</th><th>Status</th><th class="num">Angebot</th></tr>
+  </thead>
+  <tbody>
+    {% for a in articles %}
+    <tr onclick="window.location='/articles/{{ a.id }}'">
+      <td class="mono artno-cell">{{ a.article_no }}</td>
+      <td class="thumb-cell">
+        {% if a.images %}<img class="thumb" src="/uploads/{{ a.images[0].filename }}" alt="">
+        {% else %}<span class="thumb placeholder">—</span>{% endif %}
+      </td>
+      <td><strong>{{ a.title }}</strong></td>
+      <td><span class="badge status-{{ a.status | lower }}">{{ a.status }}</span></td>
+      <td class="num">{{ a.listing_price | eur }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty"><p>Dieser Lagerort ist leer.</p></div>
+{% endif %}
+{% endblock %}

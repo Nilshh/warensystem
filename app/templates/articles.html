@@ -70,6 +70,7 @@
       <th>Bild</th>
       {{ sorthead('title', 'Titel') }}
       {{ sorthead('status', 'Status') }}
+      {{ sorthead('storage_area', 'Lager') }}
       {{ sorthead('listing_price', 'Angebot', 'num') }}
       {{ sorthead('sold_price', 'Verkauft', 'num') }}
       <th class="num">Gewinn</th>
@@ -100,6 +101,12 @@
         {% endif %}
       </td>
       <td><span class="badge status-{{ a.status | lower }}">{{ a.status }}</span></td>
+      <td class="muted">
+        {% if a.storage_location %}
+        <a href="/storage/location?area={{ a.storage_area|urlencode }}&shelf={{ a.storage_shelf|urlencode }}&bin={{ a.storage_bin|urlencode }}"
+           onclick="event.stopPropagation()">{{ a.storage_location }}</a>
+        {% else %}–{% endif %}
+      </td>
       <td class="num">{{ a.listing_price | eur }}</td>
       <td class="num">{{ (a.sold_price | eur) if a.is_sold else '–' }}</td>
       <td class="num {{ 'positive' if a.profit and a.profit >= 0 else ('negative' if a.profit and a.profit < 0 else '') }}">

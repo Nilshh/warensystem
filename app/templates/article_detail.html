@@ -12,6 +12,9 @@
     <span class="badge status-{{ article.status | lower }}">{{ article.status }}</span>
     {% if article.category %}<span class="muted">· {{ article.category }}</span>{% endif %}
     {% if article.condition %}<span class="muted">· {{ article.condition }}</span>{% endif %}
+    {% if article.storage_location %}
+    <div class="storage-line">📍 <a href="/storage/location?area={{ article.storage_area|urlencode }}&shelf={{ article.storage_shelf|urlencode }}&bin={{ article.storage_bin|urlencode }}">{{ article.storage_location }}</a></div>
+    {% endif %}
   </div>
   <div class="actions">
     {% if not article.is_sold %}

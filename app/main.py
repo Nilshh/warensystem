@@ -196,6 +196,11 @@ def apply_form(article: Article, data: dict) -> None:
     raw_tags = (data.get("tags") or "").split(",")
     article.tags = ", ".join(t.strip() for t in raw_tags if t.strip())
 
+    # Lagerplatz
+    article.storage_area = (data.get("storage_area") or "").strip()
+    article.storage_shelf = (data.get("storage_shelf") or "").strip()
+    article.storage_bin = (data.get("storage_bin") or "").strip()
+
     # Käufer- & Versandabwicklung
     article.sale_platform = (data.get("sale_platform") or "").strip()
     article.buyer_name = (data.get("buyer_name") or "").strip()
@@ -220,6 +225,10 @@ def set_status(article: Article, new_status: str) -> None:
     """
     if new_status == "Verkauft" and article.sold_at is None:
         article.sold_at = datetime.now(timezone.utc)
+        # Lagerplatz wird beim Verkauf frei
+        article.storage_area = ""
+        article.storage_shelf = ""
+        article.storage_bin = ""
     elif new_status in ("Entwurf", "Angeboten", "Reserviert"):
         article.sold_at = None
     article.status = new_status
@@ -316,6 +325,7 @@ def dashboard(
 # ---------------------------------------------------------------------------
 SORT_COLUMNS = {
     "article_no": Article.article_no,
+    "storage_area": Article.storage_area,
     "title": Article.title,
     "status": Article.status,
     "listing_price": Article.listing_price,
@@ -349,6 +359,9 @@ def list_articles(
             Article.title.ilike(like)
             | Article.category.ilike(like)
             | Article.tags.ilike(like)
+            | Article.storage_area.ilike(like)
+            | Article.storage_shelf.ilike(like)
+            | Article.storage_bin.ilike(like)
         )
     articles = db.scalars(stmt).all()
 
@@ -686,6 +699,97 @@ def article_label(article_id: int, request: Request, db: Session = Depends(get_d
     )
 
 
+# ---------------------------------------------------------------------------
+# Lager / Lagerorte
+# ---------------------------------------------------------------------------
+def format_storage(area: str, shelf: str, bin_: str) -> str:
+    parts = []
+    if area:
+        parts.append(area)
+    if shelf:
+        parts.append(f"Regal {shelf}")
+    if bin_:
+        parts.append(f"Fach {bin_}")
+    return ", ".join(parts)
+
+
+def _storage_query(area: str, shelf: str, bin_: str) -> str:
+    return urllib.parse.urlencode({"area": area, "shelf": shelf, "bin": bin_})
+
+
+def _storage_url(area: str, shelf: str, bin_: str) -> str:
+    return f"{config.BASE_URL}/storage/location?{_storage_query(area, shelf, bin_)}"
+
+
+@app.get("/storage", response_class=HTMLResponse)
+def storage_overview(request: Request, db: Session = Depends(get_db)):
+    """Übersicht aller belegten Lagerorte mit Anzahl und Inhalt."""
+    articles = db.scalars(
+        select(Article).order_by(Article.storage_area, Article.storage_shelf, Article.storage_bin)
+    ).all()
+    groups: dict[tuple, dict] = {}
+    for a in articles:
+        if not a.storage_location:
+            continue
+        key = (a.storage_area, a.storage_shelf, a.storage_bin)
+        g = groups.setdefault(key, {
+            "area": a.storage_area, "shelf": a.storage_shelf, "bin": a.storage_bin,
+            "label": a.storage_location, "articles": [],
+        })
+        g["articles"].append(a)
+    locations = [groups[k] for k in sorted(groups.keys())]
+    return templates.TemplateResponse(
+        "storage_overview.html", {"request": request, "locations": locations}
+    )
+
+
+@app.get("/storage/location", response_class=HTMLResponse)
+def storage_location(
+    request: Request, area: str = "", shelf: str = "", bin: str = "",
+    db: Session = Depends(get_db),
+):
+    """Inhalt eines bestimmten Lagerorts (Ziel der Lager-QR-Codes)."""
+    articles = db.scalars(
+        select(Article).where(
+            Article.storage_area == area,
+            Article.storage_shelf == shelf,
+            Article.storage_bin == bin,
+        ).order_by(Article.article_no)
+    ).all()
+    label = format_storage(area, shelf, bin)
+    return templates.TemplateResponse(
+        "storage_location.html",
+        {
+            "request": request, "articles": articles, "label": label,
+            "area": area, "shelf": shelf, "bin": bin,
+            "query": _storage_query(area, shelf, bin),
+        },
+    )
+
+
+@app.get("/storage/qr.svg")
+def storage_qr(area: str = "", shelf: str = "", bin: str = ""):
+    svg = make_qr_svg(_storage_url(area, shelf, bin))
+    return Response(content=svg, media_type="image/svg+xml")
+
+
+@app.get("/storage/label", response_class=HTMLResponse)
+def storage_label(
+    request: Request, area: str = "", shelf: str = "", bin: str = "",
+):
+    """Druckbares Etikett für ein Lagerfach/eine Kiste."""
+    label = format_storage(area, shelf, bin)
+    return templates.TemplateResponse(
+        "storage_label.html",
+        {
+            "request": request, "label": label,
+            "query": _storage_query(area, shelf, bin),
+            "url": _storage_url(area, shelf, bin),
+            "qr_svg": Markup(make_qr_svg(_storage_url(area, shelf, bin))),
+        },
+    )
+
+
 @app.get("/articles/{article_id}/lieferschein", response_class=HTMLResponse)
 def lieferschein(article_id: int, request: Request, db: Session = Depends(get_db)):
     """Druckbarer Lieferschein/Packzettel für einen Artikel."""
@@ -818,7 +922,7 @@ def export_csv(year: int | None = None, db: Session = Depends(get_db)):
     buffer = io.StringIO()
     writer = csv.writer(buffer, delimiter=";")
     writer.writerow([
-        "Artikelnr", "ID", "Titel", "Kategorie", "Zustand", "Status", "Tags",
+        "Artikelnr", "ID", "Titel", "Kategorie", "Zustand", "Status", "Lagerplatz", "Tags",
         "Einkaufskosten", "Angebotspreis", "Verkaufspreis",
         "Versandart", "Versandkosten", "Versand zahlt", "Gebuehren", "Gewinn", "Marge %",
         "Verkauft ueber", "Kaeufer", "Zahlungsart",
@@ -828,7 +932,7 @@ def export_csv(year: int | None = None, db: Session = Depends(get_db)):
     ])
     for a in articles:
         writer.writerow([
-            a.article_no, a.id, a.title, a.category, a.condition, a.status, a.tags,
+            a.article_no, a.id, a.title, a.category, a.condition, a.status, a.storage_location, a.tags,
             f"{a.purchase_cost:.2f}", f"{a.listing_price:.2f}", f"{a.sold_price:.2f}",
             a.shipping_method, f"{a.shipping_cost:.2f}", a.shipping_payer, f"{a.fees:.2f}",
             f"{a.profit:.2f}" if a.profit is not None else "",

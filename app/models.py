@@ -73,6 +73,11 @@ class Article(Base):
     # Freie Schlagworte (kommagetrennt)
     tags: Mapped[str] = mapped_column(String(300), default="")
 
+    # Lagerplatz (strukturiert)
+    storage_area: Mapped[str] = mapped_column(String(80), default="")    # Bereich
+    storage_shelf: Mapped[str] = mapped_column(String(40), default="")   # Regal
+    storage_bin: Mapped[str] = mapped_column(String(40), default="")     # Fach
+
     # Käufer- & Versandabwicklung
     sale_platform: Mapped[str] = mapped_column(String(30), default="")   # verkauft über
     buyer_name: Mapped[str] = mapped_column(String(150), default="")
@@ -124,6 +129,18 @@ class Article(Base):
     @property
     def tag_list(self) -> list[str]:
         return [t.strip() for t in self.tags.split(",") if t.strip()]
+
+    @property
+    def storage_location(self) -> str:
+        """Lagerplatz als kompakter Text (leere Teile werden ausgelassen)."""
+        parts = []
+        if self.storage_area:
+            parts.append(self.storage_area)
+        if self.storage_shelf:
+            parts.append(f"Regal {self.storage_shelf}")
+        if self.storage_bin:
+            parts.append(f"Fach {self.storage_bin}")
+        return ", ".join(parts)
 
 
 class ArticleImage(Base):

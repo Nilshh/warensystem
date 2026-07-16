@@ -157,6 +157,18 @@ table.kv tr.total td { font-weight: 700; font-size: 1rem; padding-top: .7rem; bo
 .banner { padding: .7rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: .9rem; }
 .banner.error { background: #fbeaea; color: #b02a2a; border: 1px solid #f0cccc; }
 .banner.success { background: #e0f5e9; color: #12833f; border: 1px solid #b8e6c9; }
+.banner.info { background: #e2edff; color: #1d54d8; border: 1px solid #c3d8fb; }
+
+/* Lager */
+.storage-line { margin-top: .4rem; font-size: .9rem; }
+.storage-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+.storage-loc { margin-bottom: 0; }
+.storage-loc-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .6rem; }
+.storage-loc-name { font-weight: 600; font-size: 1.02rem; }
+.storage-items { list-style: none; padding: 0; margin: 0 0 .8rem; }
+.storage-items li { display: flex; align-items: center; gap: .4rem; justify-content: space-between; padding: .3rem 0; border-bottom: 1px solid #f0f1f4; font-size: .88rem; }
+.storage-items li:last-child { border-bottom: none; }
+.badge.sm { font-size: .68rem; padding: .1rem .45rem; }
 
 /* Bulk-Aktionsleiste */
 .bulkbar { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;

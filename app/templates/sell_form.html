@@ -11,6 +11,9 @@
   · Angebotspreis {{ article.listing_price | eur }}
   · Einkauf {{ article.purchase_cost | eur }}
 </p>
+{% if article.storage_location %}
+<div class="banner info">📍 Lagerplatz: <strong>{{ article.storage_location }}</strong> — dort findest du den Artikel zum Packen. Der Platz wird nach dem Verkauf automatisch frei.</div>
+{% endif %}
 
 <form method="post" action="/articles/{{ article.id }}/sell" class="form">
   <fieldset>

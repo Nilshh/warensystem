@@ -69,6 +69,17 @@
     <label>Tags <span class="muted">(kommagetrennt, z.B. Apple, Retro, Konvolut)</span>
       <input type="text" name="tags" value="{{ article.tags if article else '' }}">
     </label>
+    <div class="row">
+      <label>Lager: Bereich
+        <input type="text" name="storage_area" value="{{ article.storage_area if article else '' }}" placeholder="z.B. Keller">
+      </label>
+      <label>Regal
+        <input type="text" name="storage_shelf" value="{{ article.storage_shelf if article else '' }}" placeholder="z.B. A">
+      </label>
+      <label>Fach
+        <input type="text" name="storage_bin" value="{{ article.storage_bin if article else '' }}" placeholder="z.B. 3">
+      </label>
+    </div>
     <label>Beschreibung
       <textarea name="description" rows="4">{{ article.description if article else '' }}</textarea>
     </label>

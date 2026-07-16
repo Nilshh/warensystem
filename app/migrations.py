@@ -17,6 +17,9 @@ _EXPECTED = {
     "articles": {
         "article_no": "VARCHAR(20) DEFAULT ''",
         "shipping_payer": "VARCHAR(20) DEFAULT 'Käufer'",
+        "storage_area": "VARCHAR(80) DEFAULT ''",
+        "storage_shelf": "VARCHAR(40) DEFAULT ''",
+        "storage_bin": "VARCHAR(40) DEFAULT ''",
         "tags": "VARCHAR(300) DEFAULT ''",
         "sale_platform": "VARCHAR(30) DEFAULT ''",
         "buyer_name": "VARCHAR(150) DEFAULT ''",

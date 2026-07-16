@@ -3,47 +3,45 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Etikett {{ article.article_no or article.id }}</title>
+  <title>Lager-Etikett {{ label }}</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #111;
            margin: 0; background: #f0f0f0; }
-    .toolbar { max-width: 420px; margin: 1rem auto 0; display: flex; gap: .5rem; }
+    .toolbar { max-width: 480px; margin: 1rem auto 0; display: flex; gap: .5rem; }
     .btn { padding: .5rem .9rem; border: 1px solid #ccc; border-radius: 8px; background: #fff;
            cursor: pointer; font-size: .9rem; text-decoration: none; color: #111; }
     .btn.primary { background: #2b6cff; border-color: #2b6cff; color: #fff; }
 
     .label {
-      background: #fff; width: 62mm; margin: 1rem auto; padding: 5mm;
+      background: #fff; width: 80mm; margin: 1rem auto; padding: 6mm;
       border: 1px solid #ddd; border-radius: 6px; text-align: center;
       box-shadow: 0 2px 12px rgba(0,0,0,.1);
     }
-    .label .qr { width: 42mm; height: 42mm; margin: 0 auto; }
+    .label .heading { font-size: .75rem; letter-spacing: .05em; text-transform: uppercase; color: #888; margin-bottom: 3mm; }
+    .label .qr { width: 50mm; height: 50mm; margin: 0 auto; }
     .label .qr svg { width: 100%; height: 100%; display: block; }
-    .label .artno { font-family: ui-monospace, monospace; font-weight: 700; font-size: 1.05rem; margin-top: 3mm; }
-    .label .title { font-size: .82rem; margin-top: 1mm; line-height: 1.25;
-                    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .label .url { font-size: .6rem; color: #888; margin-top: 1.5mm; word-break: break-all; }
+    .label .loc { font-weight: 700; font-size: 1.15rem; margin-top: 4mm; }
+    .label .url { font-size: .6rem; color: #888; margin-top: 2mm; word-break: break-all; }
 
     @media print {
       body { background: #fff; }
       .toolbar { display: none; }
       .label { margin: 0; border: none; border-radius: 0; box-shadow: none; }
-      @page { margin: 6mm; }
+      @page { margin: 8mm; }
     }
   </style>
 </head>
 <body>
   <div class="toolbar">
-    <button class="btn primary" onclick="window.print()">🖨 Etikett drucken</button>
-    <a class="btn" href="/articles/{{ article.id }}">← Zurück</a>
+    <button class="btn primary" onclick="window.print()">🖨 Lager-Etikett drucken</button>
+    <a class="btn" href="/storage/location?{{ query }}">← Zurück</a>
   </div>
 
   <div class="label">
+    <div class="heading">Lagerplatz</div>
     <div class="qr">{{ qr_svg }}</div>
-    {% if article.article_no %}<div class="artno">{{ article.article_no }}</div>{% endif %}
-    <div class="title">{{ article.title }}</div>
-    {% if article.storage_location %}<div class="storage">📍 {{ article.storage_location }}</div>{% endif %}
+    <div class="loc">📍 {{ label }}</div>
     <div class="url">{{ url }}</div>
   </div>
 </body>
