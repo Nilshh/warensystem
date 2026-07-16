@@ -5,34 +5,51 @@
   <h1>Lager</h1>
 </div>
 
+{% if error %}<div class="banner error">⚠ {{ error }}</div>{% endif %}
+
+<section class="card">
+  <h2>Lagerplatz anlegen</h2>
+  <form method="post" action="/storage/new" class="storage-new">
+    <label>Bereich <input type="text" name="area" placeholder="z.B. Keller"></label>
+    <label>Regal <input type="text" name="shelf" placeholder="z.B. A"></label>
+    <label>Fach <input type="text" name="bin" placeholder="z.B. 3"></label>
+    <button class="btn btn-primary" type="submit">+ Anlegen</button>
+  </form>
+  <p class="hint">Mindestens ein Feld ausfüllen. Diese Lagerplätze stehen dann im Artikel als Auswahl bereit.</p>
+</section>
+
 {% if locations %}
 <div class="storage-grid">
   {% for loc in locations %}
+  {% set qs = 'area='~(loc.area|urlencode)~'&shelf='~(loc.shelf|urlencode)~'&bin='~(loc.bin|urlencode) %}
   <section class="card storage-loc">
     <div class="storage-loc-head">
-      <a class="storage-loc-name" href="/storage/location?{{ 'area='~(loc.area|urlencode)~'&shelf='~(loc.shelf|urlencode)~'&bin='~(loc.bin|urlencode) }}">
-        📍 {{ loc.label }}
-      </a>
+      <a class="storage-loc-name" href="/storage/location?{{ qs }}">📍 {{ loc.label }}</a>
       <span class="badge">{{ loc.articles|length }}</span>
     </div>
     <ul class="storage-items">
       {% for a in loc.articles %}
       <li>
-        <a href="/articles/{{ a.id }}">
-          <span class="mono">{{ a.article_no }}</span> {{ a.title }}
-        </a>
+        <a href="/articles/{{ a.id }}"><span class="mono">{{ a.article_no }}</span> {{ a.title }}</a>
         <span class="badge status-{{ a.status | lower }} sm">{{ a.status }}</span>
       </li>
+      {% else %}
+      <li class="muted">leer</li>
       {% endfor %}
     </ul>
-    <a class="btn btn-sm" href="/storage/label?{{ 'area='~(loc.area|urlencode)~'&shelf='~(loc.shelf|urlencode)~'&bin='~(loc.bin|urlencode) }}" target="_blank">🏷 QR-Etikett</a>
+    <div class="storage-loc-actions">
+      <a class="btn btn-sm" href="/storage/label?{{ qs }}" target="_blank">🏷 QR-Etikett</a>
+      {% if loc.articles|length == 0 %}
+      <form method="post" action="/storage/{{ loc.id }}/delete" style="display:inline"
+            onsubmit="return confirm('Lagerplatz „{{ loc.label }}“ löschen?')">
+        <button class="btn btn-sm btn-danger" type="submit">Löschen</button>
+      </form>
+      {% endif %}
+    </div>
   </section>
   {% endfor %}
 </div>
 {% else %}
-<div class="empty">
-  <p>Noch keine Artikel mit Lagerplatz.</p>
-  <p class="muted">Trage bei einem Artikel unter „Lager" Bereich/Regal/Fach ein.</p>
-</div>
+<div class="empty"><p>Noch keine Lagerplätze angelegt.</p></div>
 {% endif %}
 {% endblock %}

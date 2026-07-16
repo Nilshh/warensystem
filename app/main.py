@@ -23,7 +23,7 @@ from . import backup, config, ebay
 from .database import Base, engine, get_db, SessionLocal
 from .migrations import run_migrations
 from .models import (
-    Article, ArticleImage,
+    Article, ArticleImage, StorageLocation,
     STATUSES, CONDITIONS, SHIPPING_METHODS, SHIPPING_OPTIONS,
     SHIPPING_PAYERS, SALE_PLATFORMS,
 )
@@ -61,6 +61,29 @@ def backfill_article_numbers() -> None:
 
 
 backfill_article_numbers()
+
+
+def backfill_storage_locations() -> None:
+    """Übernimmt vorhandene Artikel-Lagerplätze einmalig in die verwaltete Liste."""
+    db = SessionLocal()
+    try:
+        existing = {
+            (l.area, l.shelf, l.bin) for l in db.scalars(select(StorageLocation)).all()
+        }
+        seen = set()
+        for a in db.scalars(select(Article)).all():
+            key = (a.storage_area, a.storage_shelf, a.storage_bin)
+            if key == ("", "", "") or key in existing or key in seen:
+                continue
+            seen.add(key)
+            db.add(StorageLocation(area=key[0], shelf=key[1], bin=key[2]))
+        if seen:
+            db.commit()
+    finally:
+        db.close()
+
+
+backfill_storage_locations()
 
 
 def archive_old_sales() -> int:
@@ -196,10 +219,6 @@ def apply_form(article: Article, data: dict) -> None:
     raw_tags = (data.get("tags") or "").split(",")
     article.tags = ", ".join(t.strip() for t in raw_tags if t.strip())
 
-    # Lagerplatz
-    article.storage_area = (data.get("storage_area") or "").strip()
-    article.storage_shelf = (data.get("storage_shelf") or "").strip()
-    article.storage_bin = (data.get("storage_bin") or "").strip()
 
     # Käufer- & Versandabwicklung
     article.sale_platform = (data.get("sale_platform") or "").strip()
@@ -232,6 +251,44 @@ def set_status(article: Article, new_status: str) -> None:
     elif new_status in ("Entwurf", "Angeboten", "Reserviert"):
         article.sold_at = None
     article.status = new_status
+
+
+def _set_article_storage(article: Article, loc: StorageLocation | None) -> None:
+    """Setzt/leert den Lagerplatz eines Artikels anhand eines verwalteten Lagerorts."""
+    article.storage_area = loc.area if loc else ""
+    article.storage_shelf = loc.shelf if loc else ""
+    article.storage_bin = loc.bin if loc else ""
+
+
+def apply_storage(db: Session, article: Article, data) -> None:
+    """Übernimmt die im Dropdown gewählte Lagerplatz-ID auf den Artikel."""
+    loc_id = data.get("storage_location_id")
+    loc = None
+    if loc_id and str(loc_id).isdigit():
+        loc = db.get(StorageLocation, int(loc_id))
+    _set_article_storage(article, loc)
+
+
+def current_location_id(db: Session, article: Article | None) -> int | None:
+    """Findet die Lagerort-ID zum aktuellen Lagerplatz eines Artikels (für Vorauswahl)."""
+    if not article or not article.storage_location:
+        return None
+    loc = db.scalar(
+        select(StorageLocation).where(
+            StorageLocation.area == article.storage_area,
+            StorageLocation.shelf == article.storage_shelf,
+            StorageLocation.bin == article.storage_bin,
+        )
+    )
+    return loc.id if loc else None
+
+
+def all_locations(db: Session) -> list[StorageLocation]:
+    return db.scalars(
+        select(StorageLocation).order_by(
+            StorageLocation.area, StorageLocation.shelf, StorageLocation.bin
+        )
+    ).all()
 
 
 # ---------------------------------------------------------------------------
@@ -343,6 +400,7 @@ def list_articles(
     sort: str = "updated_at",
     dir: str = "desc",
     updated: int = 0,
+    stored: int = 0,
     db: Session = Depends(get_db),
 ):
     column = SORT_COLUMNS.get(sort, Article.updated_at)
@@ -375,6 +433,8 @@ def list_articles(
         "sort": sort,
         "dir": dir,
         "updated": updated,
+        "stored": stored,
+        "storage_locations": all_locations(db),
     }
     return templates.TemplateResponse("articles.html", ctx)
 
@@ -407,10 +467,34 @@ async def bulk_status(request: Request, db: Session = Depends(get_db)):
     return RedirectResponse(f"/articles?{query}", status_code=303)
 
 
+@app.post("/articles/bulk-storage")
+async def bulk_storage(request: Request, db: Session = Depends(get_db)):
+    """Setzt den Lagerplatz mehrerer ausgewählter Artikel auf einmal."""
+    form = await request.form()
+    ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()]
+    loc_id = form.get("storage_location_id")
+    loc = db.get(StorageLocation, int(loc_id)) if loc_id and str(loc_id).isdigit() else None
+
+    stored = 0
+    if ids:
+        for a in db.scalars(select(Article).where(Article.id.in_(ids))).all():
+            _set_article_storage(a, loc)
+            stored += 1
+        db.commit()
+
+    params = {
+        "q": form.get("q", ""), "status": form.get("status", ""),
+        "tag": form.get("tag", ""), "sort": form.get("sort", "updated_at"),
+        "dir": form.get("dir", "desc"), "stored": stored,
+    }
+    query = urllib.parse.urlencode({k: v for k, v in params.items() if v != ""})
+    return RedirectResponse(f"/articles?{query}", status_code=303)
+
+
 # ---------------------------------------------------------------------------
 # Artikel anlegen
 # ---------------------------------------------------------------------------
-def _form_context(request: Request, article: Article | None, error: str = "") -> dict:
+def _form_context(request: Request, article: Article | None, db: Session, error: str = "") -> dict:
     return {
         "request": request,
         "article": article,
@@ -420,6 +504,8 @@ def _form_context(request: Request, article: Article | None, error: str = "") ->
         "shipping_options": SHIPPING_OPTIONS,
         "shipping_payers": SHIPPING_PAYERS,
         "sale_platforms": SALE_PLATFORMS,
+        "storage_locations": all_locations(db),
+        "current_storage_id": current_location_id(db, article),
         "fee_percent": config.DEFAULT_EBAY_FEE_PERCENT,
         "ebay_import_enabled": ebay.import_supported(),
         "error": error,
@@ -427,8 +513,8 @@ def _form_context(request: Request, article: Article | None, error: str = "") ->
 
 
 @app.get("/articles/new", response_class=HTMLResponse)
-def new_article(request: Request, error: str = ""):
-    return templates.TemplateResponse("article_form.html", _form_context(request, None, error))
+def new_article(request: Request, error: str = "", db: Session = Depends(get_db)):
+    return templates.TemplateResponse("article_form.html", _form_context(request, None, db, error))
 
 
 @app.post("/articles/new")
@@ -436,6 +522,7 @@ async def create_article(request: Request, db: Session = Depends(get_db)):
     form = await request.form()
     article = Article()
     apply_form(article, form)
+    apply_storage(db, article, form)
     db.add(article)
     assign_article_no(db, article)
     db.commit()
@@ -722,25 +809,66 @@ def _storage_url(area: str, shelf: str, bin_: str) -> str:
 
 
 @app.get("/storage", response_class=HTMLResponse)
-def storage_overview(request: Request, db: Session = Depends(get_db)):
-    """Übersicht aller belegten Lagerorte mit Anzahl und Inhalt."""
-    articles = db.scalars(
-        select(Article).order_by(Article.storage_area, Article.storage_shelf, Article.storage_bin)
-    ).all()
-    groups: dict[tuple, dict] = {}
-    for a in articles:
-        if not a.storage_location:
-            continue
-        key = (a.storage_area, a.storage_shelf, a.storage_bin)
-        g = groups.setdefault(key, {
-            "area": a.storage_area, "shelf": a.storage_shelf, "bin": a.storage_bin,
-            "label": a.storage_location, "articles": [],
+def storage_overview(request: Request, error: str = "", db: Session = Depends(get_db)):
+    """Übersicht der verwalteten Lagerorte mit Inhalt; Lagerorte hier anlegen."""
+    locations = []
+    for loc in all_locations(db):
+        items = db.scalars(
+            select(Article).where(
+                Article.storage_area == loc.area,
+                Article.storage_shelf == loc.shelf,
+                Article.storage_bin == loc.bin,
+            ).order_by(Article.article_no)
+        ).all()
+        locations.append({
+            "id": loc.id, "area": loc.area, "shelf": loc.shelf, "bin": loc.bin,
+            "label": loc.label, "articles": items,
         })
-        g["articles"].append(a)
-    locations = [groups[k] for k in sorted(groups.keys())]
     return templates.TemplateResponse(
-        "storage_overview.html", {"request": request, "locations": locations}
+        "storage_overview.html", {"request": request, "locations": locations, "error": error}
     )
+
+
+@app.post("/storage/new")
+async def storage_new(
+    area: str = Form(""), shelf: str = Form(""), bin: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    area, shelf, bin = area.strip(), shelf.strip(), bin.strip()
+    if not (area or shelf or bin):
+        msg = urllib.parse.quote("Bitte mindestens Bereich, Regal oder Fach angeben.")
+        return RedirectResponse(f"/storage?error={msg}", status_code=303)
+    # Duplikat vermeiden
+    exists = db.scalar(
+        select(StorageLocation).where(
+            StorageLocation.area == area, StorageLocation.shelf == shelf, StorageLocation.bin == bin
+        )
+    )
+    if not exists:
+        db.add(StorageLocation(area=area, shelf=shelf, bin=bin))
+        db.commit()
+    return RedirectResponse("/storage", status_code=303)
+
+
+@app.post("/storage/{loc_id}/delete")
+def storage_delete(loc_id: int, db: Session = Depends(get_db)):
+    loc = db.get(StorageLocation, loc_id)
+    if loc:
+        count = db.scalar(
+            select(func.count(Article.id)).where(
+                Article.storage_area == loc.area,
+                Article.storage_shelf == loc.shelf,
+                Article.storage_bin == loc.bin,
+            )
+        ) or 0
+        if count > 0:
+            msg = urllib.parse.quote(
+                f"Lagerplatz {loc.label} ist nicht leer ({count} Artikel) und kann nicht gelöscht werden."
+            )
+            return RedirectResponse(f"/storage?error={msg}", status_code=303)
+        db.delete(loc)
+        db.commit()
+    return RedirectResponse("/storage", status_code=303)
 
 
 @app.get("/storage/location", response_class=HTMLResponse)
@@ -813,7 +941,7 @@ def lieferschein(article_id: int, request: Request, db: Session = Depends(get_db
 @app.get("/articles/{article_id}/edit", response_class=HTMLResponse)
 def edit_article(article_id: int, request: Request, db: Session = Depends(get_db)):
     article = _get_article(db, article_id)
-    return templates.TemplateResponse("article_form.html", _form_context(request, article))
+    return templates.TemplateResponse("article_form.html", _form_context(request, article, db))
 
 
 @app.post("/articles/{article_id}/edit")
@@ -821,6 +949,7 @@ async def update_article(article_id: int, request: Request, db: Session = Depend
     article = _get_article(db, article_id)
     form = await request.form()
     apply_form(article, form)
+    apply_storage(db, article, form)
     db.commit()
     return RedirectResponse(f"/articles/{article.id}", status_code=303)
 

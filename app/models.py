@@ -1,7 +1,7 @@
 """Datenmodell."""
 from datetime import datetime, timezone
 
-from sqlalchemy import String, Float, DateTime, Text, Boolean, ForeignKey
+from sqlalchemy import String, Float, DateTime, Text, Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -133,14 +133,33 @@ class Article(Base):
     @property
     def storage_location(self) -> str:
         """Lagerplatz als kompakter Text (leere Teile werden ausgelassen)."""
-        parts = []
-        if self.storage_area:
-            parts.append(self.storage_area)
-        if self.storage_shelf:
-            parts.append(f"Regal {self.storage_shelf}")
-        if self.storage_bin:
-            parts.append(f"Fach {self.storage_bin}")
-        return ", ".join(parts)
+        return format_storage_label(self.storage_area, self.storage_shelf, self.storage_bin)
+
+
+def format_storage_label(area: str, shelf: str, bin_: str) -> str:
+    parts = []
+    if area:
+        parts.append(area)
+    if shelf:
+        parts.append(f"Regal {shelf}")
+    if bin_:
+        parts.append(f"Fach {bin_}")
+    return ", ".join(parts)
+
+
+class StorageLocation(Base):
+    """Verwalteter Lagerplatz (im Lager-Bereich angelegt, im Artikel per Auswahl)."""
+    __tablename__ = "storage_locations"
+    __table_args__ = (UniqueConstraint("area", "shelf", "bin", name="uq_storage_location"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    area: Mapped[str] = mapped_column(String(80), default="")
+    shelf: Mapped[str] = mapped_column(String(40), default="")
+    bin: Mapped[str] = mapped_column(String(40), default="")
+
+    @property
+    def label(self) -> str:
+        return format_storage_label(self.area, self.shelf, self.bin)
 
 
 class ArticleImage(Base):

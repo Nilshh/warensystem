@@ -28,6 +28,9 @@
 {% if updated %}
 <div class="banner success">✔ Status von {{ updated }} Artikel{{ 'n' if updated != 1 else '' }} geändert.</div>
 {% endif %}
+{% if stored %}
+<div class="banner success">✔ Lagerplatz von {{ stored }} Artikel{{ 'n' if stored != 1 else '' }} geändert.</div>
+{% endif %}
 
 {% set base = '/articles?q=' ~ q ~ '&status=' ~ active_status ~ '&tag=' ~ active_tag %}
 {% macro sorthead(col, label, cls='') %}
@@ -42,7 +45,7 @@
 {% if articles %}
 <form method="post" action="/articles/bulk-status" id="bulk-form"
       onsubmit="return document.querySelectorAll('.rowcheck:checked').length > 0
-                       ? confirm('Status von ' + document.querySelectorAll('.rowcheck:checked').length + ' Artikel(n) ändern?')
+                       ? confirm(document.querySelectorAll('.rowcheck:checked').length + ' Artikel bearbeiten?')
                        : (alert('Bitte zuerst Artikel auswählen.'), false)">
   {# Filter/Sortierung für den Rücksprung erhalten #}
   <input type="hidden" name="q" value="{{ q }}">
@@ -53,12 +56,20 @@
 
   <div class="bulkbar">
     <span class="bulk-count"><span id="sel-count">0</span> ausgewählt</span>
-    <label>Status setzen:
+    <label>Status:
       <select name="new_status">
         {% for s in statuses %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
       </select>
     </label>
-    <button class="btn btn-primary btn-sm" type="submit">Anwenden</button>
+    <button class="btn btn-primary btn-sm" type="submit" formaction="/articles/bulk-status">Status setzen</button>
+    <span class="bulk-sep"></span>
+    <label>Lagerplatz:
+      <select name="storage_location_id">
+        <option value="">– kein –</option>
+        {% for loc in storage_locations %}<option value="{{ loc.id }}">{{ loc.label }}</option>{% endfor %}
+      </select>
+    </label>
+    <button class="btn btn-sm" type="submit" formaction="/articles/bulk-storage">Lagerplatz setzen</button>
   </div>
 
 <div class="table-wrap">

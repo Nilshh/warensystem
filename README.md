@@ -24,10 +24,11 @@ LXC-Container im Proxmox-Cluster. Bedienung über die **Web-UI**.
   Status-Übersicht und **Monats-Diagramm** (Umsatz & Gewinn)
 - **Artikelliste** mit Suche, Status-/Tag-Filter und **sortierbaren Spalten**
 - **Artikel duplizieren** (als Vorlage)
-- **Lagerverwaltung**: Lagerplatz pro Artikel (Bereich/Regal/Fach), **Lager-Reiter**
-  mit Übersicht aller Lagerorte, anklickbare Lagerfächer/Kisten (zeigt den Inhalt),
-  **QR-Etikett je Lagerort** (Scan zeigt, was dort liegen soll). Beim Verkauf wird
-  der Lagerplatz automatisch frei.
+- **Lagerverwaltung**: Lagerplätze (Bereich/Regal/Fach) werden im **Lager-Reiter**
+  angelegt/verwaltet und im Artikel nur per **Auswahl** genutzt. Übersicht aller
+  Lagerorte, anklickbare Lagerfächer/Kisten (zeigt den Inhalt), **QR-Etikett je
+  Lagerort** (Scan zeigt, was dort liegen soll). **Massenbearbeitung**: Lagerplatz
+  für mehrere Artikel gemeinsam setzen. Beim Verkauf wird der Lagerplatz frei.
 - **QR-Etikett** pro Artikel — druckbares Etikett, dessen QR-Code auf die
   Artikelseite verweist (Ziel-URL via `BASE_URL` in der `.env`)
 - **Lieferschein/Packzettel** pro verkauftem Artikel — druckoptimiert (Browser → „Als PDF speichern")
