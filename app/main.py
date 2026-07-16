@@ -433,7 +433,7 @@ SORT_COLUMNS = {
 def list_articles(
     request: Request,
     q: str = "",
-    status: str = "",
+    status: str = "Angeboten",   # Standardfilter; "?status=" (leer) zeigt alle
     tag: str = "",
     category: str = "",
     sort: str = "article_no",
@@ -484,6 +484,27 @@ def list_articles(
     return templates.TemplateResponse("articles.html", ctx)
 
 
+def _back_to_list(form, **extra) -> str:
+    """Baut die Rücksprung-URL zur Artikelliste mit erhaltenen Filtern.
+
+    `status` wird immer mitgegeben — sonst würde eine leere Auswahl
+    ("Alle Status") auf den Standardfilter zurückfallen.
+    """
+    params = {
+        "q": form.get("q", ""),
+        "status": form.get("status", ""),
+        "tag": form.get("tag", ""),
+        "category": form.get("category", ""),
+        "sort": form.get("sort", "article_no"),
+        "dir": form.get("dir", "asc"),
+    }
+    params.update(extra)
+    query = urllib.parse.urlencode(
+        {k: v for k, v in params.items() if v != "" or k == "status"}
+    )
+    return f"/articles?{query}"
+
+
 @app.post("/articles/bulk-status")
 async def bulk_status(request: Request, db: Session = Depends(get_db)):
     """Ändert den Status mehrerer ausgewählter Artikel auf einmal."""
@@ -499,18 +520,7 @@ async def bulk_status(request: Request, db: Session = Depends(get_db)):
             updated += 1
         db.commit()
 
-    # aktuelle Filter/Sortierung beim Zurückspringen erhalten
-    params = {
-        "q": form.get("q", ""),
-        "status": form.get("status", ""),
-        "tag": form.get("tag", ""),
-        "category": form.get("category", ""),
-        "sort": form.get("sort", "article_no"),
-        "dir": form.get("dir", "asc"),
-        "updated": updated,
-    }
-    query = urllib.parse.urlencode({k: v for k, v in params.items() if v != ""})
-    return RedirectResponse(f"/articles?{query}", status_code=303)
+    return RedirectResponse(_back_to_list(form, updated=updated), status_code=303)
 
 
 @app.post("/articles/bulk-category")
@@ -527,14 +537,7 @@ async def bulk_category(request: Request, db: Session = Depends(get_db)):
             categorized += 1
         db.commit()
 
-    params = {
-        "q": form.get("q", ""), "status": form.get("status", ""),
-        "tag": form.get("tag", ""), "category": form.get("category", ""),
-        "sort": form.get("sort", "article_no"),
-        "dir": form.get("dir", "asc"), "categorized": categorized,
-    }
-    query = urllib.parse.urlencode({k: v for k, v in params.items() if v != ""})
-    return RedirectResponse(f"/articles?{query}", status_code=303)
+    return RedirectResponse(_back_to_list(form, categorized=categorized), status_code=303)
 
 
 @app.post("/articles/bulk-labels", response_class=HTMLResponse)
@@ -576,14 +579,7 @@ async def bulk_storage(request: Request, db: Session = Depends(get_db)):
             stored += 1
         db.commit()
 
-    params = {
-        "q": form.get("q", ""), "status": form.get("status", ""),
-        "tag": form.get("tag", ""), "category": form.get("category", ""),
-        "sort": form.get("sort", "article_no"),
-        "dir": form.get("dir", "asc"), "stored": stored,
-    }
-    query = urllib.parse.urlencode({k: v for k, v in params.items() if v != ""})
-    return RedirectResponse(f"/articles?{query}", status_code=303)
+    return RedirectResponse(_back_to_list(form, stored=stored), status_code=303)
 
 
 # ---------------------------------------------------------------------------
