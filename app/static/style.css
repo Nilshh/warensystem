@@ -186,7 +186,8 @@ table.kv tr.total td { font-weight: 700; font-size: 1rem; padding-top: .7rem; bo
   padding: .6rem .9rem; margin-bottom: .75rem; box-shadow: var(--shadow); }
 .bulkbar .bulk-count { color: var(--muted); font-size: .85rem; min-width: 5.5rem; }
 .bulkbar label { font-size: .88rem; display: inline-flex; align-items: center; gap: .4rem; }
-.bulkbar select { padding: .4rem .55rem; border: 1px solid var(--border); border-radius: 8px; font-size: .88rem; }
+.bulkbar select, .bulkbar input[type=text] { padding: .4rem .55rem; border: 1px solid var(--border); border-radius: 8px; font-size: .88rem; }
+.bulkbar input[type=text] { width: 130px; }
 .check-cell { width: 34px; text-align: center; }
 .check-cell input { width: 16px; height: 16px; cursor: pointer; }
 

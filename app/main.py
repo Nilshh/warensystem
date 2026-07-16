@@ -317,6 +317,14 @@ def current_location_id(db: Session, article: Article | None) -> int | None:
     return loc.id if loc else None
 
 
+def all_categories(db: Session) -> list[str]:
+    """Alle vergebenen Kategorien (für Filter und Massenbearbeitung)."""
+    rows = db.scalars(
+        select(Article.category).where(Article.category != "").distinct()
+    ).all()
+    return sorted(rows)
+
+
 def all_locations(db: Session) -> list[StorageLocation]:
     return db.scalars(
         select(StorageLocation).order_by(
@@ -427,10 +435,12 @@ def list_articles(
     q: str = "",
     status: str = "",
     tag: str = "",
+    category: str = "",
     sort: str = "updated_at",
     dir: str = "desc",
     updated: int = 0,
     stored: int = 0,
+    categorized: int = 0,
     db: Session = Depends(get_db),
 ):
     column = SORT_COLUMNS.get(sort, Article.updated_at)
@@ -439,6 +449,8 @@ def list_articles(
     stmt = select(Article).order_by(order)
     if status:
         stmt = stmt.where(Article.status == status)
+    if category:
+        stmt = stmt.where(Article.category == category)
     if tag:
         stmt = stmt.where(Article.tags.ilike(f"%{tag}%"))
     if q:
@@ -460,11 +472,14 @@ def list_articles(
         "q": q,
         "active_status": status,
         "active_tag": tag,
+        "active_category": category,
         "sort": sort,
         "dir": dir,
         "updated": updated,
         "stored": stored,
+        "categorized": categorized,
         "storage_locations": all_locations(db),
+        "categories": all_categories(db),
     }
     return templates.TemplateResponse("articles.html", ctx)
 
@@ -489,9 +504,34 @@ async def bulk_status(request: Request, db: Session = Depends(get_db)):
         "q": form.get("q", ""),
         "status": form.get("status", ""),
         "tag": form.get("tag", ""),
+        "category": form.get("category", ""),
         "sort": form.get("sort", "updated_at"),
         "dir": form.get("dir", "desc"),
         "updated": updated,
+    }
+    query = urllib.parse.urlencode({k: v for k, v in params.items() if v != ""})
+    return RedirectResponse(f"/articles?{query}", status_code=303)
+
+
+@app.post("/articles/bulk-category")
+async def bulk_category(request: Request, db: Session = Depends(get_db)):
+    """Setzt die Kategorie mehrerer ausgewählter Artikel auf einmal."""
+    form = await request.form()
+    ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()]
+    category = (form.get("new_category") or "").strip()
+
+    categorized = 0
+    if ids:
+        for a in db.scalars(select(Article).where(Article.id.in_(ids))).all():
+            a.category = category      # leer = Kategorie entfernen
+            categorized += 1
+        db.commit()
+
+    params = {
+        "q": form.get("q", ""), "status": form.get("status", ""),
+        "tag": form.get("tag", ""), "category": form.get("category", ""),
+        "sort": form.get("sort", "updated_at"),
+        "dir": form.get("dir", "desc"), "categorized": categorized,
     }
     query = urllib.parse.urlencode({k: v for k, v in params.items() if v != ""})
     return RedirectResponse(f"/articles?{query}", status_code=303)
@@ -538,7 +578,8 @@ async def bulk_storage(request: Request, db: Session = Depends(get_db)):
 
     params = {
         "q": form.get("q", ""), "status": form.get("status", ""),
-        "tag": form.get("tag", ""), "sort": form.get("sort", "updated_at"),
+        "tag": form.get("tag", ""), "category": form.get("category", ""),
+        "sort": form.get("sort", "updated_at"),
         "dir": form.get("dir", "desc"), "stored": stored,
     }
     query = urllib.parse.urlencode({k: v for k, v in params.items() if v != ""})

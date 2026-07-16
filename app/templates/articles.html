@@ -14,6 +14,13 @@
     <option value="{{ s }}" {{ 'selected' if s == active_status else '' }}>{{ s }}</option>
     {% endfor %}
   </select>
+  <select name="category">
+    <option value="">Alle Kategorien</option>
+    {% for cat in categories %}
+    <option value="{{ cat }}" {{ 'selected' if cat == active_category else '' }}>{{ cat }}</option>
+    {% endfor %}
+  </select>
+  <input type="hidden" name="tag" value="{{ active_tag }}">
   <input type="hidden" name="sort" value="{{ sort }}">
   <input type="hidden" name="dir" value="{{ dir }}">
   <button class="btn" type="submit">Filtern</button>
@@ -31,8 +38,11 @@
 {% if stored %}
 <div class="banner success">✔ Lagerplatz von {{ stored }} Artikel{{ 'n' if stored != 1 else '' }} geändert.</div>
 {% endif %}
+{% if categorized %}
+<div class="banner success">✔ Kategorie von {{ categorized }} Artikel{{ 'n' if categorized != 1 else '' }} geändert.</div>
+{% endif %}
 
-{% set base = '/articles?q=' ~ q ~ '&status=' ~ active_status ~ '&tag=' ~ active_tag %}
+{% set base = '/articles?q=' ~ q ~ '&status=' ~ active_status ~ '&tag=' ~ active_tag ~ '&category=' ~ (active_category|urlencode) %}
 {% macro sorthead(col, label, cls='') %}
   {% set newdir = 'asc' if (sort == col and dir == 'desc') else 'desc' %}
   <th class="{{ cls }} sortable">
@@ -48,6 +58,7 @@
   <input type="hidden" name="q" value="{{ q }}">
   <input type="hidden" name="status" value="{{ active_status }}">
   <input type="hidden" name="tag" value="{{ active_tag }}">
+  <input type="hidden" name="category" value="{{ active_category }}">
   <input type="hidden" name="sort" value="{{ sort }}">
   <input type="hidden" name="dir" value="{{ dir }}">
 
@@ -67,6 +78,14 @@
       </select>
     </label>
     <button class="btn btn-sm" type="submit" formaction="/articles/bulk-storage">Lagerplatz setzen</button>
+    <span class="bulk-sep"></span>
+    <label>Kategorie:
+      <input type="text" name="new_category" list="bulk-categories" placeholder="z.B. Handys">
+      <datalist id="bulk-categories">
+        {% for cat in categories %}<option value="{{ cat }}">{% endfor %}
+      </datalist>
+    </label>
+    <button class="btn btn-sm" type="submit" formaction="/articles/bulk-category">Kategorie setzen</button>
     <span class="bulk-sep"></span>
     <button class="btn btn-sm" type="submit" formaction="/articles/bulk-labels" formtarget="_blank">🏷 QR-Etiketten drucken</button>
   </div>
@@ -104,7 +123,10 @@
       </td>
       <td>
         <strong>{{ a.title }}</strong>
-        {% if a.category %}<br><span class="muted">{{ a.category }}</span>{% endif %}
+        {% if a.category %}<br>
+        <a class="muted" href="/articles?category={{ a.category|urlencode }}"
+           onclick="event.stopPropagation()">{{ a.category }}</a>
+        {% endif %}
         {% if a.tag_list %}
         <div class="row-tags">
           {% for t in a.tag_list %}<span class="tag chip sm">{{ t }}</span>{% endfor %}
