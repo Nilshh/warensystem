@@ -918,19 +918,23 @@ def _storage_url(area: str, shelf: str, bin_: str) -> str:
 
 @app.get("/storage", response_class=HTMLResponse)
 def storage_overview(request: Request, error: str = "", db: Session = Depends(get_db)):
-    """Übersicht der verwalteten Lagerorte mit Inhalt; Lagerorte hier anlegen."""
+    """Übersicht der verwalteten Lagerorte mit Anzahl; Lagerorte hier anlegen.
+
+    Der Inhalt eines Lagerorts wird erst auf dessen Detailseite gezeigt —
+    hier wird deshalb nur gezählt, nicht geladen.
+    """
     locations = []
     for loc in all_locations(db):
-        items = db.scalars(
-            select(Article).where(
+        count = db.scalar(
+            select(func.count(Article.id)).where(
                 Article.storage_area == loc.area,
                 Article.storage_shelf == loc.shelf,
                 Article.storage_bin == loc.bin,
-            ).order_by(Article.article_no)
-        ).all()
+            )
+        ) or 0
         locations.append({
             "id": loc.id, "area": loc.area, "shelf": loc.shelf, "bin": loc.bin,
-            "label": loc.label, "articles": items,
+            "label": loc.label, "count": count,
         })
     return templates.TemplateResponse(
         "storage_overview.html", {"request": request, "locations": locations, "error": error}

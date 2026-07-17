@@ -23,23 +23,15 @@
   {% for loc in locations %}
   {% set qs = 'area='~(loc.area|urlencode)~'&shelf='~(loc.shelf|urlencode)~'&bin='~(loc.bin|urlencode) %}
   <section class="card storage-loc">
-    <div class="storage-loc-head">
-      <a class="storage-loc-name" href="/storage/location?{{ qs }}">📍 {{ loc.label }}</a>
-      <span class="badge">{{ loc.articles|length }}</span>
-    </div>
-    <ul class="storage-items">
-      {% for a in loc.articles %}
-      <li>
-        <a href="/articles/{{ a.id }}"><span class="mono">{{ a.article_no }}</span> {{ a.title }}</a>
-        <span class="badge status-{{ a.status | lower }} sm">{{ a.status }}</span>
-      </li>
-      {% else %}
-      <li class="muted">leer</li>
-      {% endfor %}
-    </ul>
+    <a class="storage-loc-link" href="/storage/location?{{ qs }}">
+      <span class="storage-loc-name">📍 {{ loc.label }}</span>
+      <span class="storage-loc-count {{ 'is-empty' if loc.count == 0 else '' }}">
+        {{ loc.count }} <span class="unit">Artikel</span>
+      </span>
+    </a>
     <div class="storage-loc-actions">
       <a class="btn btn-sm" href="/storage/label?{{ qs }}" target="_blank">🏷 QR-Etikett</a>
-      {% if loc.articles|length == 0 %}
+      {% if loc.count == 0 %}
       <form method="post" action="/storage/{{ loc.id }}/delete" style="display:inline"
             onsubmit="return confirm('Lagerplatz „{{ loc.label }}“ löschen?')">
         <button class="btn btn-sm btn-danger" type="submit">Löschen</button>
@@ -55,8 +47,8 @@
         <label>Fach <input type="text" name="bin" value="{{ loc.bin }}"></label>
         <button class="btn btn-primary btn-sm" type="submit">Speichern</button>
       </form>
-      {% if loc.articles|length > 0 %}
-      <p class="hint">Die {{ loc.articles|length }} zugeordneten Artikel werden automatisch mit umbenannt.</p>
+      {% if loc.count > 0 %}
+      <p class="hint">Die {{ loc.count }} zugeordneten Artikel werden automatisch mit umbenannt.</p>
       {% endif %}
     </details>
   </section>

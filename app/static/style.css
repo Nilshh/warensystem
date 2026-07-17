@@ -171,11 +171,15 @@ table.kv tr.total td { font-weight: 700; font-size: 1rem; padding-top: .7rem; bo
 .storage-line { margin-top: .4rem; font-size: .9rem; }
 .storage-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
 .storage-loc { margin-bottom: 0; }
-.storage-loc-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .6rem; }
+.storage-loc-link { display: flex; align-items: center; justify-content: space-between;
+  gap: .5rem; padding: .3rem 0 .7rem; color: var(--text); }
+.storage-loc-link:hover { text-decoration: none; }
+.storage-loc-link:hover .storage-loc-name { color: var(--primary); }
 .storage-loc-name { font-weight: 600; font-size: 1.02rem; }
-.storage-items { list-style: none; padding: 0; margin: 0 0 .8rem; }
-.storage-items li { display: flex; align-items: center; gap: .4rem; justify-content: space-between; padding: .3rem 0; border-bottom: 1px solid #f0f1f4; font-size: .88rem; }
-.storage-items li:last-child { border-bottom: none; }
+.storage-loc-count { background: #eef1f5; color: #4a5261; border-radius: 20px;
+  padding: .2rem .6rem; font-size: .82rem; font-weight: 700; white-space: nowrap; }
+.storage-loc-count .unit { font-weight: 400; color: var(--muted); }
+.storage-loc-count.is-empty { background: #f4f5f7; color: var(--muted); }
 .badge.sm { font-size: .68rem; padding: .1rem .45rem; }
 .storage-loc-actions { display: flex; gap: .4rem; }
 .storage-edit { margin-top: .6rem; }
