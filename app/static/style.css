@@ -33,7 +33,7 @@ a:hover { text-decoration: underline; }
 .topbar nav { display: flex; gap: 1.25rem; align-items: center; }
 .topbar nav a { color: var(--text); font-weight: 500; }
 
-.container { max-width: 1080px; margin: 1.5rem auto; padding: 0 1.5rem; }
+.container { max-width: 1280px; margin: 1.5rem auto; padding: 0 1.5rem; }
 .footer { text-align: center; color: var(--muted); font-size: .85rem; padding: 2rem 0; }
 
 h1 { font-size: 1.6rem; margin: .2rem 0 1rem; }
@@ -81,6 +81,15 @@ h2 { font-size: 1.05rem; margin: 0 0 .75rem; }
 .badge.stock-ok { background: #e0f5e9; color: #12a150; }
 .badge.stock-out { background: #fbeaea; color: #b02a2a; }
 
+/* Verkaufstabelle: 10 Spalten brauchen Platz. Schmale Spalten nicht umbrechen
+   lassen, damit der Artikeltitel den Rest bekommt. */
+table.sales { min-width: 1000px; }
+table.sales .col-datum,
+table.sales .col-kaeufer,
+table.sales .col-plattform,
+table.sales .col-sendung { white-space: nowrap; }
+table.sales .col-artikel { min-width: 220px; }
+
 /* Sendungsverfolgung */
 .badge.track-zugestellt { background: #e0f5e9; color: #12a150; }
 .badge.track-unterwegs { background: #e2edff; color: #2b6cff; }
@@ -114,7 +123,10 @@ code { background: #eef0f4; padding: .1rem .35rem; border-radius: 4px; font-size
 
 /* Table */
 .table-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
-table.data { width: 100%; border-collapse: collapse; }
+/* Reicht der Platz nicht, scrollt .table-wrap waagerecht — besser als
+   zusammengequetschte Spalten. */
+table.data { width: 100%; border-collapse: collapse; min-width: 720px; }
+table.data.compact { min-width: 0; }
 table.data th, table.data td { padding: .7rem .8rem; text-align: left; border-bottom: 1px solid var(--border); font-size: .9rem; vertical-align: middle; }
 table.data th { background: #fafbfc; color: var(--muted); font-weight: 600; font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; }
 table.data tbody tr { cursor: pointer; }

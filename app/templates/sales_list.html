@@ -35,19 +35,20 @@
 
 {% if sales %}
 <div class="table-wrap">
-<table class="data">
+<table class="data sales">
   <thead>
     <tr>
-      <th>Verkauft am</th><th>Artikel</th><th class="num">Stück</th>
+      <th class="col-datum">Verkauft am</th><th class="col-artikel">Artikel</th><th class="num">Stück</th>
       <th class="num">Erlös</th><th class="num">Gebühren</th><th class="num">Gewinn</th>
-      <th>Käufer</th><th>Plattform</th><th>Sendung</th><th></th>
+      <th class="col-kaeufer">Käufer</th><th class="col-plattform">Plattform</th>
+      <th class="col-sendung">Sendung</th><th></th>
     </tr>
   </thead>
   <tbody>
     {% for s in sales %}
     <tr>
-      <td>{{ s.sold_at | date }}</td>
-      <td>
+      <td class="col-datum">{{ s.sold_at | date }}</td>
+      <td class="col-artikel">
         {% if s.article %}
         <a href="/articles/{{ s.article.id }}"><span class="mono">{{ s.article.article_no }}</span> {{ s.article.title }}</a>
         {% else %}<span class="muted">– gelöscht –</span>{% endif %}
@@ -56,9 +57,9 @@
       <td class="num">{{ s.sold_price | eur }}</td>
       <td class="num">{{ s.fees | eur }}</td>
       <td class="num {{ 'positive' if s.profit >= 0 else 'negative' }}">{{ s.profit | eur }}</td>
-      <td>{{ s.buyer_name or '–' }}</td>
-      <td>{{ s.sale_platform or '–' }}</td>
-      <td>
+      <td class="col-kaeufer">{{ s.buyer_name or '–' }}</td>
+      <td class="col-plattform">{{ s.sale_platform or '–' }}</td>
+      <td class="col-sendung">
         {% if s.tracking_status %}
         <span class="badge track-{{ s.tracking_status }}" title="{{ s.tracking_status_text }}">
           {{ {'zugestellt':'✓ Zugestellt','unterwegs':'Unterwegs','problem':'⚠ Problem','unbekannt':'Unbekannt'}[s.tracking_status] }}
