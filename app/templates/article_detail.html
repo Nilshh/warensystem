@@ -55,7 +55,9 @@
     <div class="gallery">
       {% for img in article.images %}
       <div class="gallery-item {{ 'is-main' if loop.first else '' }}">
-        <img src="/uploads/{{ img.filename }}" alt="">
+        <a href="/uploads/{{ img.filename }}" target="_blank" title="Bild in voller Größe öffnen">
+          <img src="/uploads/{{ img.thumb }}" alt="" loading="lazy">
+        </a>
         {% if loop.first %}<span class="main-badge">Hauptbild</span>{% endif %}
         <form method="post" action="/articles/{{ article.id }}/images/{{ img.id }}/delete">
           <button class="img-del" type="submit" title="Bild löschen">✕</button>

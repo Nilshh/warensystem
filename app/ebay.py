@@ -185,17 +185,18 @@ def fetch_item(url_or_id: str) -> dict:
     }
 
 
-def download_image(image_url: str, dest_path) -> bool:
-    """Lädt ein Bild herunter. Gibt True bei Erfolg zurück."""
+def fetch_image(image_url: str) -> bytes | None:
+    """Lädt ein Bild herunter und gibt die Rohdaten zurück (None bei Fehler).
+
+    Das Speichern übernimmt `app.images`, damit auch eBay-Bilder verkleinert
+    und mit Thumbnail abgelegt werden.
+    """
     try:
         req = urllib.request.Request(image_url, headers={"User-Agent": "warensystem/1.0"})
         with urllib.request.urlopen(req, timeout=20) as resp:
-            data = resp.read()
-        with open(dest_path, "wb") as f:
-            f.write(data)
-        return True
+            return resp.read()
     except Exception:
-        return False
+        return None
 
 
 # ---------------------------------------------------------------------------

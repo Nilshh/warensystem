@@ -119,7 +119,7 @@
       <td class="mono artno-cell">{{ a.article_no }}</td>
       <td class="thumb-cell">
         {% if a.images %}
-          <img class="thumb" src="/uploads/{{ a.images[0].filename }}" alt="">
+          <img class="thumb" src="/uploads/{{ a.images[0].thumb }}" alt="" loading="lazy">
         {% else %}
           <span class="thumb placeholder">—</span>
         {% endif %}

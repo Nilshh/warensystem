@@ -25,7 +25,9 @@ LXC-Container im Proxmox-Cluster. Bedienung über die **Web-UI**.
 - **Geführter Verkauf-Workflow** und **automatische Archivierung** ausverkaufter
   Artikel nach einstellbarer Frist (`ARCHIVE_AFTER_DAYS`, Standard 7 Tage;
   Verkäufe zählen in der Statistik weiter)
-- **Bilder-Upload** pro Artikel, inkl. **Hauptbild festlegen**
+- **Bilder-Upload** pro Artikel, inkl. **Hauptbild festlegen**. Bilder werden beim
+  Upload automatisch verkleinert (max. 1600 px), gedreht (EXIF) und als
+  Vorschaubild abgelegt — Listen laden dadurch auch über VPN schnell.
 - Links + Angebots-Status für **eBay** und **Kleinanzeigen** (parallel)
 - **Preise & Kosten**: Einkauf, Angebotspreis, Verkaufspreis, Versandart (Dropdown), Versandkosten, Gebühren
 - **Automatische Gewinn- und Margenberechnung**

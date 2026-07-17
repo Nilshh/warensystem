@@ -5,6 +5,7 @@ from sqlalchemy import String, Float, DateTime, Text, Boolean, ForeignKey, Uniqu
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
+from .images import thumb_name
 
 # Lebenszyklus eines Artikels
 STATUSES = ["Entwurf", "Angeboten", "Reserviert", "Verkauft", "Archiviert"]
@@ -238,3 +239,8 @@ class ArticleImage(Base):
     position: Mapped[int] = mapped_column(default=0)  # 0 = Hauptbild
 
     article: Mapped["Article"] = relationship(back_populates="images")
+
+    @property
+    def thumb(self) -> str:
+        """Dateiname des Vorschaubildes (für Listen und Galerie)."""
+        return thumb_name(self.filename)

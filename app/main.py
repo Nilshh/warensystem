@@ -19,7 +19,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from . import backup, config, ebay
+from . import backup, config, ebay, images
 from .database import Base, engine, get_db, SessionLocal
 from .migrations import run_migrations
 from .models import (
@@ -165,6 +165,36 @@ def archive_old_sales() -> int:
         db.close()
 
 
+def optimize_existing_images() -> tuple[int, int]:
+    """Einmalige Nachbearbeitung vorhandener Bilder.
+
+    Verkleinert zu große Originale und erzeugt fehlende Thumbnails.
+    Gibt (verkleinert, Thumbnails erzeugt) zurück.
+    """
+    db = SessionLocal()
+    try:
+        verkleinert = thumbs = 0
+        for img in db.scalars(select(ArticleImage)).all():
+            if images.optimize_existing(config.UPLOAD_DIR, img.filename):
+                verkleinert += 1
+            if images.ensure_thumb(config.UPLOAD_DIR, img.filename):
+                thumbs += 1
+        if verkleinert or thumbs:
+            log.info("Bilder nachbearbeitet: %d verkleinert, %d Thumbnails erzeugt.",
+                     verkleinert, thumbs)
+        return verkleinert, thumbs
+    finally:
+        db.close()
+
+
+async def _image_maintenance():
+    """Bestandsbilder einmalig nachziehen (blockiert den Start nicht)."""
+    try:
+        await asyncio.to_thread(optimize_existing_images)
+    except Exception:
+        log.exception("Bild-Nachbearbeitung fehlgeschlagen")
+
+
 async def _archive_loop():
     """Prüft periodisch auf zu archivierende Verkäufe (alle 6 Stunden)."""
     while True:
@@ -190,7 +220,7 @@ async def _backup_loop():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    tasks = []
+    tasks = [asyncio.create_task(_image_maintenance())]
     if config.ARCHIVE_AFTER_DAYS > 0:
         tasks.append(asyncio.create_task(_archive_loop()))
     if config.AUTO_BACKUP_HOURS > 0:
@@ -844,14 +874,23 @@ async def create_article(request: Request, db: Session = Depends(get_db)):
     return RedirectResponse(f"/articles/{article.id}", status_code=303)
 
 
+def _delete_image_files(filename: str) -> None:
+    """Entfernt Bilddatei und zugehöriges Thumbnail."""
+    for name in (filename, images.thumb_name(filename)):
+        (config.UPLOAD_DIR / name).unlink(missing_ok=True)
+
+
 def _download_item_images(db: Session, article: Article, image_urls: list[str]) -> None:
+    """Lädt eBay-Bilder herunter und legt sie verkleinert + mit Thumbnail ab."""
     for pos, img_url in enumerate(image_urls):
-        ext = Path(urllib.parse.urlparse(img_url).path).suffix.lower()
-        if ext not in ALLOWED_IMAGE_EXT:
-            ext = ".jpg"
-        filename = f"{uuid.uuid4().hex}{ext}"
-        if ebay.download_image(img_url, config.UPLOAD_DIR / filename):
-            db.add(ArticleImage(article_id=article.id, filename=filename, position=pos))
+        data = ebay.fetch_image(img_url)
+        if not data:
+            continue
+        try:
+            filename = images.process_upload(data, config.UPLOAD_DIR, uuid.uuid4().hex)
+        except Exception:
+            continue      # unlesbares Bild einfach überspringen
+        db.add(ArticleImage(article_id=article.id, filename=filename, position=pos))
 
 
 def _create_article_from_item(db: Session, item: dict, fallback_url: str = "") -> Article:
@@ -1488,11 +1527,9 @@ def duplicate_article(article_id: int, db: Session = Depends(get_db)):
 @app.post("/articles/{article_id}/delete")
 def delete_article(article_id: int, db: Session = Depends(get_db)):
     article = _get_article(db, article_id)
-    # zugehörige Bilddateien entfernen
+    # zugehörige Bilddateien (inkl. Thumbnails) entfernen
     for img in article.images:
-        path = config.UPLOAD_DIR / img.filename
-        if path.exists():
-            path.unlink()
+        _delete_image_files(img.filename)
     db.delete(article)
     db.commit()
     return RedirectResponse("/articles", status_code=303)
@@ -1510,10 +1547,13 @@ async def upload_image(
     if ext not in ALLOWED_IMAGE_EXT:
         raise HTTPException(status_code=400, detail="Ungültiges Bildformat")
 
-    filename = f"{uuid.uuid4().hex}{ext}"
-    dest = config.UPLOAD_DIR / filename
-    with dest.open("wb") as f:
-        f.write(await file.read())
+    try:
+        # verkleinert speichern + Thumbnail erzeugen
+        filename = images.process_upload(
+            await file.read(), config.UPLOAD_DIR, uuid.uuid4().hex
+        )
+    except Exception:
+        raise HTTPException(status_code=400, detail="Bild konnte nicht gelesen werden")
 
     # neues Bild ans Ende sortieren
     next_pos = max((img.position for img in article.images), default=-1) + 1
@@ -1538,9 +1578,7 @@ def set_main_image(article_id: int, image_id: int, db: Session = Depends(get_db)
 def delete_image(article_id: int, image_id: int, db: Session = Depends(get_db)):
     img = db.get(ArticleImage, image_id)
     if img and img.article_id == article_id:
-        path = config.UPLOAD_DIR / img.filename
-        if path.exists():
-            path.unlink()
+        _delete_image_files(img.filename)
         db.delete(img)
         db.commit()
     return RedirectResponse(f"/articles/{article_id}", status_code=303)
