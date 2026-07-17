@@ -80,10 +80,23 @@ def test_dhl_unbekannte_nummer_ist_kein_fehler(dhl):
     assert carriers.track("dhl", "00340001").status == carriers.UNBEKANNT
 
 
-@pytest.mark.parametrize("code", [401, 403, 429, 500])
+@pytest.mark.parametrize("code", [429, 500])
 def test_dhl_fehler_werden_gemeldet(dhl, code):
     dhl["fehler"] = urllib.error.HTTPError("u", code, "Fehler", {}, None)
     with pytest.raises(carriers.TrackingError):
+        carriers.track("dhl", "00340001")
+
+
+def test_401_weist_auf_falschen_key_hin(dhl):
+    """401 und 403 sind verschiedene Probleme — die Meldung muss das sagen."""
+    dhl["fehler"] = urllib.error.HTTPError("u", 401, "Unauthorized", {}, None)
+    with pytest.raises(carriers.TrackingError, match="Consumer Secret"):
+        carriers.track("dhl", "00340001")
+
+
+def test_403_weist_auf_fehlende_freischaltung_hin(dhl):
+    dhl["fehler"] = urllib.error.HTTPError("u", 403, "Forbidden", {}, None)
+    with pytest.raises(carriers.TrackingError, match="freigeschaltet"):
         carriers.track("dhl", "00340001")
 
 
