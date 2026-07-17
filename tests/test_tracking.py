@@ -87,17 +87,15 @@ def test_dhl_fehler_werden_gemeldet(dhl, code):
         carriers.track("dhl", "00340001")
 
 
-def test_401_weist_auf_falschen_key_hin(dhl):
-    """401 und 403 sind verschiedene Probleme — die Meldung muss das sagen."""
-    dhl["fehler"] = urllib.error.HTTPError("u", 401, "Unauthorized", {}, None)
-    with pytest.raises(carriers.TrackingError, match="Consumer Secret"):
+@pytest.mark.parametrize("code", [401, 403])
+def test_abgelehnter_zugriff_nennt_beide_ursachen(dhl, code):
+    """DHL antwortet bei falschem Key und bei fehlender Freigabe gleich —
+    die Meldung darf sich also nicht auf eine Ursache festlegen."""
+    dhl["fehler"] = urllib.error.HTTPError("u", code, "Unauthorized", {}, None)
+    with pytest.raises(carriers.TrackingError) as e:
         carriers.track("dhl", "00340001")
-
-
-def test_403_weist_auf_fehlende_freischaltung_hin(dhl):
-    dhl["fehler"] = urllib.error.HTTPError("u", 403, "Forbidden", {}, None)
-    with pytest.raises(carriers.TrackingError, match="freigeschaltet"):
-        carriers.track("dhl", "00340001")
+    assert "Consumer Secret" in str(e.value)      # Ursache 1: falscher Key
+    assert "freigegeben" in str(e.value)          # Ursache 2: App nicht freigegeben
 
 
 def test_ohne_api_key_kein_zugriff(monkeypatch):

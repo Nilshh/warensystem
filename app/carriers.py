@@ -88,15 +88,14 @@ def _track_dhl(number: str) -> TrackingResult:
             return TrackingResult(status=UNBEKANNT, text="Noch keine Daten bei DHL")
         if e.code == 429:
             raise TrackingError("DHL-Abfragelimit erreicht — später erneut versuchen.")
-        if e.code == 401:
+        if e.code in (401, 403):
+            # DHL antwortet bei falschem Key UND bei nicht freigeschalteter App
+            # gleich — beide Ursachen nennen, statt eine zu raten.
             raise TrackingError(
-                "DHL lehnt den API-Key ab (401). Im Portal ist der 'API Key' "
-                "bzw. 'Consumer Key' gemeint — nicht das Consumer Secret."
-            )
-        if e.code == 403:
-            raise TrackingError(
-                "DHL-API-Key ist nicht für 'Shipment Tracking – Unified' "
-                "freigeschaltet (403). Abo/Freigabe der App im Portal prüfen."
+                f"DHL lehnt die Anfrage ab ({e.code}). Entweder ist der Key falsch "
+                "(im Portal ist der 'API Key'/'Consumer Key' gemeint, nicht das "
+                "Consumer Secret) oder die App ist für 'Shipment Tracking – Unified' "
+                "noch nicht freigegeben."
             )
         raise TrackingError(f"DHL-Abfrage fehlgeschlagen ({e.code}).")
     except urllib.error.URLError as e:
