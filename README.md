@@ -84,11 +84,26 @@ Die Daten (SQLite-DB + hochgeladene Bilder) liegen im Ordner `./data` und bleibe
 
 ### Updaten / neu deployen
 
-Für spätere Updates gibt es `deploy.sh` — holt die neueste Version, baut den
-Container neu, räumt alte Images auf und prüft per Health-Check:
+Für spätere Updates gibt es `deploy.sh`:
 
 ```bash
 ./deploy.sh
+```
+
+Ablauf: **Backup erstellen** → neueste Version holen → Container neu bauen &
+starten → alte Images aufräumen → Health-Check.
+
+Das Backup wird vor jeder Änderung erstellt und landet in `./backups`
+(konsistenter Snapshot über die laufende App; falls sie nicht erreichbar ist,
+wird ersatzweise das Datenverzeichnis als `tar.gz` gesichert). Schlägt das
+Backup fehl, bricht das Skript ab, ohne etwas zu verändern.
+
+Anpassbar per Umgebungsvariablen:
+
+```bash
+PORT=8080 ./deploy.sh            # anderer Port
+BACKUP_DIR=/mnt/nas ./deploy.sh  # Backups woanders ablegen
+KEEP_BACKUPS=30 ./deploy.sh      # mehr Sicherungen aufheben (0 = alle behalten)
 ```
 
 > Es gibt bewusst **kein Login** (nur im LAN gedacht). Wenn du es später von

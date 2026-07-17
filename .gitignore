@@ -1,6 +1,9 @@
 # Laufzeitdaten (DB + hochgeladene Bilder)
 /data/
 
+# Sicherungen (werden von deploy.sh angelegt)
+/backups/
+
 # Secrets / lokale Konfiguration
 .env
 
