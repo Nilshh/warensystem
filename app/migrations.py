@@ -38,8 +38,23 @@ _EXPECTED = {
 }
 
 
+# Indizes auf häufig gefilterte/sortierte Spalten.
+# create_all legt Indizes nur bei NEUEN Tabellen an — für bestehende Datenbanken
+# müssen sie hier ergänzt werden.
+_INDEXES = {
+    "ix_articles_status": "articles(status)",
+    "ix_articles_category": "articles(category)",
+    "ix_articles_quantity": "articles(quantity)",
+    "ix_articles_storage": "articles(storage_area, storage_shelf, storage_bin)",
+    "ix_sales_sold_at": "sales(sold_at)",
+}
+
+
 def run_migrations(engine: Engine) -> list[str]:
-    """Ergänzt fehlende Spalten. Gibt eine Liste der durchgeführten Änderungen zurück."""
+    """Ergänzt fehlende Spalten und Indizes.
+
+    Gibt eine Liste der durchgeführten Änderungen zurück.
+    """
     inspector = inspect(engine)
     applied: list[str] = []
     existing_tables = set(inspector.get_table_names())
@@ -54,4 +69,9 @@ def run_migrations(engine: Engine) -> list[str]:
                 if name not in present:
                     conn.execute(text(f'ALTER TABLE {table} ADD COLUMN {name} {ddl}'))
                     applied.append(f"{table}.{name}")
+
+        for name, target in _INDEXES.items():
+            table = target.split("(", 1)[0]
+            if table in existing_tables:
+                conn.execute(text(f"CREATE INDEX IF NOT EXISTS {name} ON {target}"))
     return applied

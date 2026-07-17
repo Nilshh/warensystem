@@ -17,7 +17,7 @@ from markupsafe import Markup
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from . import backup, config, ebay
 from .database import Base, engine, get_db, SessionLocal
@@ -474,7 +474,13 @@ def list_articles(
     column = SORT_COLUMNS.get(sort, Article.article_no)
     order = column.asc() if dir == "asc" else column.desc()
 
-    stmt = select(Article).order_by(order)
+    # Verkäufe und Bilder gleich mitladen — die Liste zeigt Umsatz/Gewinn und
+    # das Hauptbild je Zeile (sonst je Artikel zwei Extra-Abfragen).
+    stmt = (
+        select(Article)
+        .options(selectinload(Article.sales), selectinload(Article.images))
+        .order_by(order)
+    )
     if status:
         stmt = stmt.where(Article.status == status)
     if category:
@@ -617,9 +623,12 @@ def reports(request: Request, days: int = 90, db: Session = Depends(get_db)):
     ladenhueter.sort(key=lambda x: x["alter"], reverse=True)
     gebundenes_kapital = round(sum(x["article"].stock_value for x in ladenhueter), 2)
 
+    # Verkäufe einmal laden (mit Artikel) und für beide Auswertungen nutzen
+    alle_verkaeufe = db.scalars(select(Sale).options(joinedload(Sale.article))).all()
+
     # --- Plattform-Vergleich ------------------------------------------------
     plattformen: dict[str, dict] = {}
-    for s in db.scalars(select(Sale)).all():
+    for s in alle_verkaeufe:
         key = s.sale_platform or "ohne Angabe"
         p = plattformen.setdefault(key, {"name": key, "stueck": 0, "umsatz": 0.0,
                                          "gewinn": 0.0, "verkaeufe": 0})
@@ -635,7 +644,7 @@ def reports(request: Request, days: int = 90, db: Session = Depends(get_db)):
 
     # --- Verkaufsdauer & Marge je Kategorie ---------------------------------
     kategorien: dict[str, dict] = {}
-    for s in db.scalars(select(Sale)).all():
+    for s in alle_verkaeufe:
         a = s.article
         if not a:
             continue
@@ -1244,7 +1253,9 @@ def storage_location(
 ):
     """Inhalt eines bestimmten Lagerorts (Ziel der Lager-QR-Codes)."""
     articles = db.scalars(
-        select(Article).where(
+        select(Article)
+        .options(selectinload(Article.images))   # Vorschaubilder je Zeile
+        .where(
             Article.storage_area == area,
             Article.storage_shelf == shelf,
             Article.storage_bin == bin,
@@ -1307,7 +1318,9 @@ def sales_list(
     msg: str = "", error: str = "", db: Session = Depends(get_db),
 ):
     """Übersicht aller Verkäufe (mit Jahresfilter und Suche)."""
-    sales = db.scalars(select(Sale).order_by(Sale.sold_at.desc())).all()
+    sales = db.scalars(
+        select(Sale).options(joinedload(Sale.article)).order_by(Sale.sold_at.desc())
+    ).all()
     years = _sold_years(db)
     if year:
         sales = [s for s in sales if s.sold_at and s.sold_at.year == year]
@@ -1539,7 +1552,9 @@ def delete_image(article_id: int, image_id: int, db: Session = Depends(get_db)):
 @app.get("/export.csv")
 def export_csv(year: int | None = None, db: Session = Depends(get_db)):
     """Bestandsliste: alle Artikel mit Bestand und Verkaufssummen."""
-    articles = db.scalars(select(Article).order_by(Article.id)).all()
+    articles = db.scalars(
+        select(Article).options(selectinload(Article.sales)).order_by(Article.id)
+    ).all()
 
     buffer = io.StringIO()
     writer = csv.writer(buffer, delimiter=";")
@@ -1573,7 +1588,9 @@ def export_csv(year: int | None = None, db: Session = Depends(get_db)):
 @app.get("/export-sales.csv")
 def export_sales_csv(year: int | None = None, db: Session = Depends(get_db)):
     """Verkaufsliste: jeder Verkauf eine Zeile (für Buchhaltung/Steuer)."""
-    sales = db.scalars(select(Sale).order_by(Sale.sold_at)).all()
+    sales = db.scalars(
+        select(Sale).options(joinedload(Sale.article)).order_by(Sale.sold_at)
+    ).all()
     if year is not None:
         sales = [s for s in sales if s.sold_at and s.sold_at.year == year]
 
