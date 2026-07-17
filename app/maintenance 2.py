@@ -5,10 +5,10 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI
-from sqlalchemy import inspect, select, text
+from sqlalchemy import select
 
-from . import backup, carriers, config, images
-from .database import SessionLocal, engine
+from . import backup, config, images
+from .database import SessionLocal
 from .models import Article, ArticleImage, Sale, StorageLocation
 from .services import make_article_no
 
@@ -187,70 +187,6 @@ def optimize_existing_images() -> tuple[int, int]:
         db.close()
 
 
-def update_tracking() -> int:
-    """Fragt den Sendungsstatus offener Sendungen ab.
-
-    Nur Verkäufe mit Sendungsnummer, deren Dienstleister unterstützt wird und
-    die noch nicht zugestellt sind. Sehr alte Sendungen werden nicht mehr
-    abgefragt (schont das Abfragekontingent).
-    """
-    if not carriers.is_configured():
-        return 0
-
-    cutoff = datetime.now(timezone.utc) - timedelta(days=config.TRACKING_MAX_DAYS)
-    db = SessionLocal()
-    try:
-        offen = db.scalars(
-            select(Sale).where(
-                Sale.tracking_number != "",
-                Sale.tracking_status != carriers.ZUGESTELLT,
-            )
-        ).all()
-
-        aktualisiert = 0
-        for s in offen:
-            verkauft = s.sold_at
-            if verkauft and verkauft.tzinfo is None:
-                verkauft = verkauft.replace(tzinfo=timezone.utc)
-            if verkauft and verkauft < cutoff:
-                continue                       # zu alt, nicht weiter verfolgen
-
-            carrier = carriers.detect(s.tracking_carrier, s.shipping_method)
-            if not carrier:
-                continue                       # z.B. Hermes — bleibt manuell
-
-            try:
-                res = carriers.track(carrier, s.tracking_number)
-            except carriers.TrackingError as e:
-                log.warning("Sendungsverfolgung %s: %s", s.tracking_number, e)
-                continue
-
-            s.tracking_status = res.status
-            s.tracking_status_text = res.text
-            s.tracking_checked_at = datetime.now(timezone.utc)
-            if res.status == carriers.ZUGESTELLT:
-                s.tracking_delivered_at = res.delivered_at or datetime.now(timezone.utc)
-            aktualisiert += 1
-
-        if aktualisiert:
-            db.commit()
-            log.info("Sendungsverfolgung: %d Sendungen aktualisiert.", aktualisiert)
-        return aktualisiert
-    finally:
-        db.close()
-
-
-async def _tracking_loop():
-    """Fragt den Sendungsstatus regelmäßig ab (Standard: alle 12 h = 2x täglich)."""
-    await asyncio.sleep(120)      # Start nicht ausbremsen
-    while True:
-        try:
-            await asyncio.to_thread(update_tracking)
-        except Exception:
-            log.exception("Sendungsverfolgung fehlgeschlagen")
-        await asyncio.sleep(config.TRACKING_INTERVAL_HOURS * 3600)
-
-
 async def _image_maintenance():
     """Bestandsbilder einmalig nachziehen (blockiert den Start nicht)."""
     try:
@@ -289,8 +225,6 @@ async def lifespan(app: FastAPI):
         tasks.append(asyncio.create_task(_archive_loop()))
     if config.AUTO_BACKUP_HOURS > 0:
         tasks.append(asyncio.create_task(_backup_loop()))
-    if config.TRACKING_INTERVAL_HOURS > 0 and carriers.is_configured():
-        tasks.append(asyncio.create_task(_tracking_loop()))
     try:
         yield
     finally:

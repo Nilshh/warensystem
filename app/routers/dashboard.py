@@ -1,12 +1,12 @@
 """Routen: dashboard."""
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
-from .. import ebay
+from .. import carriers, config, ebay
 from ..database import get_db
 from ..models import Article, Sale, STATUSES
 from ..services import MONTH_NAMES, _sold_years
@@ -61,6 +61,23 @@ def dashboard(
         })
     chart_max = max([m["umsatz"] for m in monthly] + [m["gewinn"] for m in monthly] + [1])
 
+    # Sendungen, die auffällig lange unterwegs sind
+    haengend = []
+    if carriers.is_configured():
+        grenze = datetime.now(timezone.utc) - timedelta(days=config.TRACKING_STUCK_DAYS)
+        for s in db.scalars(
+            select(Sale)
+            .options(joinedload(Sale.article))
+            .where(Sale.tracking_number != "",
+                   Sale.tracking_status == carriers.UNTERWEGS)
+        ).all():
+            seit = s.shipped_at or s.sold_at
+            if seit and seit.tzinfo is None:
+                seit = seit.replace(tzinfo=timezone.utc)
+            if seit and seit <= grenze:
+                haengend.append({"sale": s, "tage": (datetime.now(timezone.utc) - seit).days})
+        haengend.sort(key=lambda x: x["tage"], reverse=True)
+
     # Bestand: gebundenes Kapital und potenzieller Umsatz (jahresunabhängig)
     offen = db.scalars(select(Article).where(Article.quantity > 0)).all()
     gebundenes_kapital = round(sum(a.stock_value for a in offen), 2)
@@ -86,6 +103,8 @@ def dashboard(
         "chart_max": chart_max,
         "restored": restored,
         "error": error,
+        "haengend": haengend,
+        "stuck_days": config.TRACKING_STUCK_DAYS,
     }
     return templates.TemplateResponse("dashboard.html", ctx)
 

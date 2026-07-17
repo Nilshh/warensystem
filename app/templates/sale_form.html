@@ -116,6 +116,13 @@
       </label>
       <label>Trackingnummer
         <input type="text" name="tracking_number" value="{{ sale.tracking_number }}">
+        {% if sale.tracking_status %}
+        <span class="muted">
+          <span class="badge track-{{ sale.tracking_status }}">{{ {'zugestellt':'✓ Zugestellt','unterwegs':'Unterwegs','problem':'⚠ Problem','unbekannt':'Unbekannt'}[sale.tracking_status] }}</span>
+          {{ sale.tracking_status_text }}
+          {% if sale.tracking_checked_at %}(geprüft {{ sale.tracking_checked_at | date }}){% endif %}
+        </span>
+        {% endif %}
       </label>
     </div>
     <label>Notizen

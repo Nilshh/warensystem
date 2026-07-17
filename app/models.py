@@ -170,11 +170,21 @@ class Sale(Base):
     tracking_number: Mapped[str] = mapped_column(String(100), default="")
     note: Mapped[str] = mapped_column(Text, default="")
 
+    # Automatische Sendungsverfolgung (siehe app/carriers.py)
+    tracking_status: Mapped[str] = mapped_column(String(20), default="")      # unterwegs/zugestellt/…
+    tracking_status_text: Mapped[str] = mapped_column(String(200), default="")  # Klartext des Dienstleisters
+    tracking_checked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    tracking_delivered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     order_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     shipped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     sold_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
 
     article: Mapped["Article"] = relationship(back_populates="sales")
+
+    @property
+    def is_delivered(self) -> bool:
+        return self.tracking_status == "zugestellt"
 
     @property
     def profit(self) -> float:

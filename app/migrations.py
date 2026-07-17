@@ -35,6 +35,12 @@ _EXPECTED = {
     "article_images": {
         "position": "INTEGER DEFAULT 0",
     },
+    "sales": {
+        "tracking_status": "VARCHAR(20) DEFAULT ''",
+        "tracking_status_text": "VARCHAR(200) DEFAULT ''",
+        "tracking_checked_at": "DATETIME",
+        "tracking_delivered_at": "DATETIME",
+    },
 }
 
 

@@ -15,6 +15,10 @@ LXC-Container im Proxmox-Cluster. Bedienung über die **Web-UI**.
 - **Bestand & Verkaufshistorie**: Ein Artikel kann mehrfach vorhanden sein
   (Stückzahl). Jeder Verkauf wird einzeln erfasst (Stückzahl, Käufer, Preis,
   Gebühren, Versand) und reduziert den Bestand — mit voller Historie je Artikel.
+- **Sendungsverfolgung (DHL)**: fragt den Status offener Sendungen automatisch
+  2× täglich ab und stoppt bei Zustellung; Dashboard meldet Sendungen, die
+  auffällig lange unterwegs sind. Braucht einen kostenlosen DHL-API-Key
+  (siehe unten). Hermes bleibt manuell — dort gibt es keine offizielle API.
 - **Verkäufe-Reiter**: eigene Übersicht aller Verkäufe mit Suche/Jahresfilter;
   Verkäufe lassen sich **nachträglich korrigieren oder löschen** — der Bestand
   wird dabei automatisch mitgeführt.
@@ -150,6 +154,25 @@ Nutzer-Login. Solange keine Keys gesetzt sind, ist die Box inaktiv.
 
 Zum Testen kann per `.env` auf die Sandbox umgestellt werden
 (`EBAY_ENV=sandbox` mit Sandbox-Keys).
+
+## Sendungsverfolgung aktivieren (DHL)
+
+1. Kostenlosen Account auf **developer.dhl.com** anlegen und die API
+   **„Shipment Tracking – Unified"** abonnieren (freie Stufe: ~250 Abfragen/Tag).
+2. Den API-Key in die `.env` eintragen:
+   ```
+   DHL_API_KEY=DeinKey
+   ```
+3. Container neu starten (`./deploy.sh`).
+
+Danach wird der Status offener Sendungen **2× täglich** automatisch abgefragt —
+nur für Verkäufe mit Sendungsnummer, und nur bis „zugestellt". Sendungen, die
+länger als `TRACKING_STUCK_DAYS` (Standard 7) unterwegs sind, meldet das
+Dashboard. Nach `TRACKING_MAX_DAYS` (Standard 60) wird nicht mehr abgefragt.
+
+**Hermes** hat keine öffentliche Tracking-API für Privatkunden — solche
+Sendungen bleiben manuell. Weitere Anbieter lassen sich in
+[`app/carriers.py`](app/carriers.py) ergänzen.
 
 ## Verkaufs-Synchronisierung (später)
 

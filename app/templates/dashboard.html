@@ -4,6 +4,28 @@
 {% if restored %}<div class="banner success">✔ Backup erfolgreich eingespielt.</div>{% endif %}
 {% if error %}<div class="banner error">⚠ Wiederherstellung fehlgeschlagen: {{ error }}</div>{% endif %}
 
+{% if haengend %}
+<section class="card stuck-card">
+  <h2>📦 Sendungen unterwegs seit über {{ stuck_days }} Tagen</h2>
+  <p class="muted">Diese Sendungen sind laut Dienstleister noch nicht zugestellt — vielleicht hakt es.</p>
+  <ul class="stuck-list">
+    {% for h in haengend %}
+    <li>
+      <a href="/sales/{{ h.sale.id }}/edit">
+        {% if h.sale.article %}<span class="mono">{{ h.sale.article.article_no }}</span> {{ h.sale.article.title }}
+        {% else %}Verkauf LS-{{ '%05d' % h.sale.id }}{% endif %}
+      </a>
+      <span class="muted">{{ h.sale.tracking_carrier or h.sale.shipping_method }} ·
+        <span class="mono">{{ h.sale.tracking_number }}</span>
+        {% if h.sale.tracking_status_text %}· {{ h.sale.tracking_status_text }}{% endif %}
+      </span>
+      <span class="badge status-reserviert">{{ h.tage }} Tage</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
 <div class="page-head">
   <h1>Dashboard</h1>
   <form method="get" action="/" class="yearpick">

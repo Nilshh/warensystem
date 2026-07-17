@@ -80,6 +80,18 @@ h2 { font-size: 1.05rem; margin: 0 0 .75rem; }
 .badge.artno { background: #eef1f5; color: #4a5261; font-family: ui-monospace, monospace; }
 .badge.stock-ok { background: #e0f5e9; color: #12a150; }
 .badge.stock-out { background: #fbeaea; color: #b02a2a; }
+
+/* Sendungsverfolgung */
+.badge.track-zugestellt { background: #e0f5e9; color: #12a150; }
+.badge.track-unterwegs { background: #e2edff; color: #2b6cff; }
+.badge.track-problem { background: #fbeaea; color: #b02a2a; }
+.badge.track-unbekannt { background: #eef0f4; color: #7a8290; }
+.stuck-card { border-left: 3px solid #b8791b; }
+.stuck-list { list-style: none; padding: 0; margin: 0; }
+.stuck-list li { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+  padding: .45rem 0; border-bottom: 1px solid #f0f1f4; font-size: .9rem; }
+.stuck-list li:last-child { border-bottom: none; }
+.stuck-list li .badge { margin-left: auto; }
 .artno-cell { font-size: .8rem; color: var(--muted); white-space: nowrap; }
 .status-entwurf { background: #eceff3; color: #5b6572; }
 .status-angeboten { background: #e2edff; color: #2b6cff; }

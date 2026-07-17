@@ -40,7 +40,7 @@
     <tr>
       <th>Verkauft am</th><th>Artikel</th><th class="num">Stück</th>
       <th class="num">Erlös</th><th class="num">Gebühren</th><th class="num">Gewinn</th>
-      <th>Käufer</th><th>Plattform</th><th></th>
+      <th>Käufer</th><th>Plattform</th><th>Sendung</th><th></th>
     </tr>
   </thead>
   <tbody>
@@ -58,6 +58,15 @@
       <td class="num {{ 'positive' if s.profit >= 0 else 'negative' }}">{{ s.profit | eur }}</td>
       <td>{{ s.buyer_name or '–' }}</td>
       <td>{{ s.sale_platform or '–' }}</td>
+      <td>
+        {% if s.tracking_status %}
+        <span class="badge track-{{ s.tracking_status }}" title="{{ s.tracking_status_text }}">
+          {{ {'zugestellt':'✓ Zugestellt','unterwegs':'Unterwegs','problem':'⚠ Problem','unbekannt':'Unbekannt'}[s.tracking_status] }}
+        </span>
+        {% elif s.tracking_number %}
+        <span class="muted">–</span>
+        {% else %}<span class="muted">–</span>{% endif %}
+      </td>
       <td class="row-actions">
         <a class="btn btn-sm" href="/sales/{{ s.id }}/edit">Bearbeiten</a>
         <a class="btn btn-sm" href="/sales/{{ s.id }}/lieferschein" target="_blank">🧾</a>

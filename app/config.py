@@ -40,6 +40,21 @@ EBAY_CLIENT_ID = os.getenv("EBAY_CLIENT_ID", "")
 EBAY_CLIENT_SECRET = os.getenv("EBAY_CLIENT_SECRET", "")
 EBAY_REFRESH_TOKEN = os.getenv("EBAY_REFRESH_TOKEN", "")
 
+# --- Sendungsverfolgung -----------------------------------------------------
+# DHL-Tracking (kostenloser API-Key von developer.dhl.com). Ohne Key inaktiv.
+DHL_API_KEY = os.getenv("DHL_API_KEY", "")
+# Abstand zwischen den Abfragen in Stunden (12 = 2x täglich, 0 = aus)
+TRACKING_INTERVAL_HOURS = int(os.getenv("TRACKING_INTERVAL_HOURS", "12"))
+# Sendungen, die länger als X Tage unterwegs sind, im Dashboard melden
+TRACKING_STUCK_DAYS = int(os.getenv("TRACKING_STUCK_DAYS", "7"))
+# Nach X Tagen ohne Zustellung nicht weiter abfragen (schont das Kontingent)
+TRACKING_MAX_DAYS = int(os.getenv("TRACKING_MAX_DAYS", "60"))
+
+
+def tracking_configured() -> bool:
+    return bool(DHL_API_KEY)
+
+
 # Marktplatz und Umgebung (sandbox|production)
 EBAY_MARKETPLACE_ID = os.getenv("EBAY_MARKETPLACE_ID", "EBAY_DE")
 EBAY_ENV = os.getenv("EBAY_ENV", "production").lower()
