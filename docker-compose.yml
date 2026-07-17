@@ -7,6 +7,8 @@ services:
     volumes:
       # DB + hochgeladene Bilder bleiben auf dem Host erhalten
       - ./data:/data
+      # Automatische Sicherungen (gleicher Ort wie die von deploy.sh)
+      - ./backups:/backups
     # Secrets/Konfiguration aus einer nicht eingecheckten .env laden (optional).
     # Für den ersten Start: cp .env.example .env
     env_file:
@@ -14,6 +16,7 @@ services:
         required: false
     environment:
       - DATA_DIR=/data
+      - BACKUP_DIR=/backups
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else sys.exit(1)"]

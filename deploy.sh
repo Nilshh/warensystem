@@ -55,13 +55,13 @@ if [ -d data ] && [ -n "$(ls -A data 2>/dev/null)" ]; then
   log "Erstelle Backup vor dem Deploy…"
 
   if curl -sf --max-time 120 "http://127.0.0.1:${PORT}/backup.zip" \
-       -o "${BACKUP_DIR}/warensystem-${STAMP}.zip" 2>/dev/null; then
-    ok "Backup: ${BACKUP_DIR}/warensystem-${STAMP}.zip ($(du -h "${BACKUP_DIR}/warensystem-${STAMP}.zip" | cut -f1))"
+       -o "${BACKUP_DIR}/warensystem-deploy-${STAMP}.zip" 2>/dev/null; then
+    ok "Backup: ${BACKUP_DIR}/warensystem-deploy-${STAMP}.zip ($(du -h "${BACKUP_DIR}/warensystem-deploy-${STAMP}.zip" | cut -f1))"
   else
-    rm -f "${BACKUP_DIR}/warensystem-${STAMP}.zip"
+    rm -f "${BACKUP_DIR}/warensystem-deploy-${STAMP}.zip"
     log "App nicht erreichbar – sichere stattdessen das Datenverzeichnis…"
-    if tar -czf "${BACKUP_DIR}/warensystem-${STAMP}-data.tar.gz" data; then
-      ok "Backup: ${BACKUP_DIR}/warensystem-${STAMP}-data.tar.gz ($(du -h "${BACKUP_DIR}/warensystem-${STAMP}-data.tar.gz" | cut -f1))"
+    if tar -czf "${BACKUP_DIR}/warensystem-deploy-${STAMP}-data.tar.gz" data; then
+      ok "Backup: ${BACKUP_DIR}/warensystem-deploy-${STAMP}-data.tar.gz ($(du -h "${BACKUP_DIR}/warensystem-deploy-${STAMP}-data.tar.gz" | cut -f1))"
     else
       err "Backup fehlgeschlagen – Deploy abgebrochen (keine Änderung an deinen Daten)."
       err "Prüfe Schreibrechte auf ${BACKUP_DIR} oder setze BACKUP_DIR=/pfad."
@@ -69,10 +69,11 @@ if [ -d data ] && [ -n "$(ls -A data 2>/dev/null)" ]; then
     fi
   fi
 
-  # Alte Sicherungen aufräumen
+  # Alte Deploy-Sicherungen aufräumen (die automatischen Sicherungen der App
+  # rotieren getrennt davon und werden hier nicht angefasst)
   if [ "$KEEP_BACKUPS" -gt 0 ]; then
     # shellcheck disable=SC2012
-    ls -1t "${BACKUP_DIR}"/warensystem-* 2>/dev/null | tail -n +$((KEEP_BACKUPS + 1)) | while read -r old; do
+    ls -1t "${BACKUP_DIR}"/warensystem-deploy-* 2>/dev/null | tail -n +$((KEEP_BACKUPS + 1)) | while read -r old; do
       rm -f "$old"
     done
   fi

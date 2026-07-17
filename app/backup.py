@@ -6,8 +6,10 @@ geschlossen (engine.dispose()).
 """
 from __future__ import annotations
 
+import datetime
 import io
 import os
+import pathlib
 import sqlite3
 import tempfile
 import zipfile
@@ -43,6 +45,32 @@ def create_backup() -> bytes:
 
     buf.seek(0)
     return buf.getvalue()
+
+
+def write_backup_file(directory=None, keep: int | None = None) -> pathlib.Path:
+    """Schreibt eine Sicherung als Datei und räumt alte auf.
+
+    Gibt den Pfad der neuen Sicherung zurück. Wirft OSError, wenn das
+    Verzeichnis nicht beschreibbar ist.
+    """
+    directory = pathlib.Path(directory or config.BACKUP_DIR)
+    keep = config.KEEP_BACKUPS if keep is None else keep
+    directory.mkdir(parents=True, exist_ok=True)
+
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    path = directory / f"warensystem-auto-{stamp}.zip"
+    path.write_bytes(create_backup())
+
+    # Rotation: nur die letzten `keep` automatischen Sicherungen behalten
+    if keep > 0:
+        autos = sorted(
+            directory.glob("warensystem-auto-*.zip"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        for old in autos[keep:]:
+            old.unlink(missing_ok=True)
+    return path
 
 
 def restore_backup(data: bytes) -> None:

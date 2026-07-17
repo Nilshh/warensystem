@@ -175,14 +175,31 @@ async def _archive_loop():
         await asyncio.sleep(6 * 3600)
 
 
+async def _backup_loop():
+    """Erstellt regelmäßig eine Sicherung (Standard: täglich)."""
+    # Nach dem Start kurz warten, damit Migrationen o.ä. durch sind
+    await asyncio.sleep(60)
+    while True:
+        try:
+            path = await asyncio.to_thread(backup.write_backup_file)
+            log.info("Automatische Sicherung erstellt: %s", path)
+        except Exception:
+            log.exception("Automatische Sicherung fehlgeschlagen")
+        await asyncio.sleep(config.AUTO_BACKUP_HOURS * 3600)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    task = asyncio.create_task(_archive_loop()) if config.ARCHIVE_AFTER_DAYS > 0 else None
+    tasks = []
+    if config.ARCHIVE_AFTER_DAYS > 0:
+        tasks.append(asyncio.create_task(_archive_loop()))
+    if config.AUTO_BACKUP_HOURS > 0:
+        tasks.append(asyncio.create_task(_backup_loop()))
     try:
         yield
     finally:
-        if task:
-            task.cancel()
+        for t in tasks:
+            t.cancel()
 
 
 app = FastAPI(title="Warenwirtschaftssystem", lifespan=lifespan)
