@@ -1,7 +1,7 @@
 """Wareneingang: Konvolut in Einzelartikel aufteilen."""
 import pytest
 
-from app.main import allocate_costs, parse_intake_lines
+from app.services import allocate_costs, parse_intake_lines
 from app.models import Article
 
 

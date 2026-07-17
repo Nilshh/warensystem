@@ -1,0 +1,94 @@
+"""Routen: dashboard."""
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import HTMLResponse
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from .. import ebay
+from ..database import get_db
+from ..models import Article, Sale, STATUSES
+from ..services import MONTH_NAMES, _sold_years
+from ..web import templates
+
+router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# Dashboard
+# ---------------------------------------------------------------------------
+MONTH_NAMES = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun",
+               "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"]
+
+@router.get("/", response_class=HTMLResponse)
+def dashboard(
+    request: Request,
+    year: int | None = None,
+    restored: int = 0,
+    error: str = "",
+    db: Session = Depends(get_db),
+):
+    total = db.scalar(select(func.count(Article.id))) or 0
+
+    status_counts = {s: 0 for s in STATUSES}
+    for status, count in db.execute(
+        select(Article.status, func.count(Article.id)).group_by(Article.status)
+    ):
+        status_counts[status] = count
+
+    years = _sold_years(db)
+    if year is None:
+        year = years[0] if years else datetime.now(timezone.utc).year
+
+    # Alle Verkäufe des gewählten Jahres (inkl. archivierter Artikel)
+    all_sales = db.scalars(select(Sale).where(Sale.sold_at.is_not(None))).all()
+    sold = [s for s in all_sales if s.sold_at.year == year]
+
+    umsatz = round(sum(s.sold_price for s in sold), 2)
+    gewinn = round(sum(s.profit for s in sold), 2)
+    kosten = round(umsatz - gewinn, 2)
+
+    # Monatliche Aggregation für das Jahr
+    monthly = []
+    for m in range(1, 13):
+        items = [s for s in sold if s.sold_at.month == m]
+        monthly.append({
+            "name": MONTH_NAMES[m - 1],
+            "umsatz": round(sum(s.sold_price for s in items), 2),
+            "gewinn": round(sum(s.profit for s in items), 2),
+            "count": sum(s.quantity for s in items),
+        })
+    chart_max = max([m["umsatz"] for m in monthly] + [m["gewinn"] for m in monthly] + [1])
+
+    # Bestand: gebundenes Kapital und potenzieller Umsatz (jahresunabhängig)
+    offen = db.scalars(select(Article).where(Article.quantity > 0)).all()
+    gebundenes_kapital = round(sum(a.stock_value for a in offen), 2)
+    potenzieller_umsatz = round(sum(a.listing_price * a.quantity for a in offen), 2)
+    bestand_stueck = sum(a.quantity for a in offen)
+
+    ctx = {
+        "request": request,
+        "total": total,
+        "status_counts": status_counts,
+        "umsatz": umsatz,
+        "kosten": kosten,
+        "gewinn": gewinn,
+        "verkauft_anzahl": sum(s.quantity for s in sold),
+        "offen_anzahl": len(offen),
+        "bestand_stueck": bestand_stueck,
+        "gebundenes_kapital": gebundenes_kapital,
+        "potenzieller_umsatz": potenzieller_umsatz,
+        "ebay_configured": ebay.is_configured(),
+        "year": year,
+        "years": years,
+        "monthly": monthly,
+        "chart_max": chart_max,
+        "restored": restored,
+        "error": error,
+    }
+    return templates.TemplateResponse("dashboard.html", ctx)
+
+@router.get("/health")
+def health():
+    return {"status": "ok"}

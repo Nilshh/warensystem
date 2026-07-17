@@ -3,7 +3,7 @@ import io
 import zipfile
 from datetime import datetime, timezone
 
-from app import backup, main as m
+from app import backup, maintenance, services
 from app.models import Article, Sale
 
 
@@ -25,7 +25,7 @@ def _legacy_sold_article(db) -> Article:
 
 def test_migration_uebernimmt_alt_verkauf_in_historie(db):
     a = _legacy_sold_article(db)
-    assert m.migrate_legacy_sales() == 1
+    assert maintenance.migrate_legacy_sales() == 1
 
     db.refresh(a)
     assert len(a.sales) == 1
@@ -41,8 +41,8 @@ def test_migration_uebernimmt_alt_verkauf_in_historie(db):
 
 def test_migration_ist_idempotent(db):
     a = _legacy_sold_article(db)
-    m.migrate_legacy_sales()
-    assert m.migrate_legacy_sales() == 0     # zweiter Lauf ändert nichts
+    maintenance.migrate_legacy_sales()
+    assert maintenance.migrate_legacy_sales() == 0     # zweiter Lauf ändert nichts
     db.refresh(a)
     assert len(a.sales) == 1
 
@@ -51,7 +51,7 @@ def test_migration_laesst_offene_artikel_in_ruhe(db):
     a = Article(title="Offen", status="Angeboten", quantity=1, purchase_cost=50)
     db.add(a)
     db.commit()
-    m.migrate_legacy_sales()
+    maintenance.migrate_legacy_sales()
     db.refresh(a)
     assert a.sales == []
     assert a.quantity == 1
@@ -76,9 +76,9 @@ def test_backfill_vergibt_fehlende_nummern(db):
     a = Article(title="Ohne Nummer", article_no="", quantity=1)
     db.add(a)
     db.commit()
-    m.backfill_article_numbers()
+    maintenance.backfill_article_numbers()
     db.refresh(a)
-    assert a.article_no == m.make_article_no(a.id)
+    assert a.article_no == services.make_article_no(a.id)
 
 
 # --- Backup & Restore -------------------------------------------------------
