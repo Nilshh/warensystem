@@ -108,16 +108,21 @@ table.data th { background: #fafbfc; color: var(--muted); font-weight: 600; font
 table.data tbody tr { cursor: pointer; }
 table.data tbody tr:hover { background: #f7f9fc; }
 table.data tr:last-child td { border-bottom: none; }
-.num { text-align: right; font-variant-numeric: tabular-nums; }
+.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .muted { color: var(--muted); }
 .positive { color: var(--green); }
 .negative { color: var(--red); }
 
-.row-actions { display: flex; gap: .3rem; white-space: nowrap; }
+/* Achtung: kein display:flex auf <td> — das bricht das Tabellenlayout. */
+.row-actions { white-space: nowrap; text-align: right; }
+.row-actions .btn { display: inline-block; vertical-align: middle; }
+.row-actions .btn + .btn { margin-left: .3rem; }
 .thumb-cell { width: 56px; }
 .thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; display: block; }
 .thumb.placeholder { display: flex; align-items: center; justify-content: center; background: #f0f2f5; color: var(--muted); }
-.platforms { display: flex; gap: .35rem; }
+.platforms { white-space: nowrap; }
+.platforms .tag { display: inline-block; vertical-align: middle; }
+.platforms .tag + .tag { margin-left: .35rem; }
 .tag { font-size: .72rem; padding: .15rem .5rem; border-radius: 5px; font-weight: 600; }
 .tag.ebay { background: #e2edff; color: #2b6cff; }
 .tag.ka { background: #e0f5e9; color: #12a150; }
