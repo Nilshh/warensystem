@@ -50,7 +50,15 @@
     </label>
     <div class="row">
       <label>Kategorie
-        <input type="text" name="category" value="{{ article.category if article else '' }}">
+        <select name="category" id="category-select">
+          <option value="">– keine –</option>
+          {% for cat in categories %}
+          <option value="{{ cat }}" {{ 'selected' if article and article.category == cat else '' }}>{{ cat }}</option>
+          {% endfor %}
+          <option value="__new__">+ Neue Kategorie…</option>
+        </select>
+        <input type="text" name="category_new" id="category-new" hidden
+               placeholder="Name der neuen Kategorie">
       </label>
       <label>Zustand
         <input list="conditions" name="condition" value="{{ article.condition if article else '' }}">
@@ -172,6 +180,20 @@
 
 <script>
   // Gebühren-Schätzung: Prozent vom Verkaufs- bzw. Angebotspreis
+  // "+ Neue Kategorie…" blendet das Eingabefeld ein
+  (function () {
+    var sel = document.getElementById('category-select');
+    var neu = document.getElementById('category-new');
+    function toggle() {
+      var isNew = sel.value === '__new__';
+      neu.hidden = !isNew;
+      neu.required = isNew;
+      if (isNew) neu.focus();
+    }
+    sel.addEventListener('change', toggle);
+    toggle();
+  })();
+
   // Standard-Versandkosten bei Wahl der Versandart übernehmen
   document.getElementById('shipping_method').addEventListener('change', function () {
     var opt = this.options[this.selectedIndex];

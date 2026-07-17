@@ -116,3 +116,47 @@ def test_lageruebersicht_zeigt_anzahl_ohne_inhalt(client, db, make_article):
     assert "Geheimer Inhalt" not in html          # Inhalt erst auf der Detailseite
     assert "Geheimer Inhalt" in client.get(
         "/storage/location?area=Keller&shelf=A&bin=3").text
+
+
+# --- Kategorie-Auswahl im Formular ------------------------------------------
+def test_formular_zeigt_vorhandene_kategorien_als_dropdown(client, make_article):
+    make_article(title="Vorhanden", category="Modellbahn")
+    html = client.get("/articles/new").text
+    assert '<select name="category"' in html
+    assert '<option value="Modellbahn"' in html
+    assert "+ Neue Kategorie" in html
+
+
+def test_kategorie_aus_dropdown_uebernehmen(client, db, make_article):
+    make_article(title="Vorhanden", category="Modellbahn")
+    client.post("/articles/new", data={"title": "Neu", "status": "Angeboten",
+                                       "quantity": "1", "category": "Modellbahn"})
+    assert db.query(Article).filter_by(title="Neu").one().category == "Modellbahn"
+
+
+def test_neue_kategorie_anlegen(client, db):
+    client.post("/articles/new", data={"title": "Neu", "status": "Angeboten", "quantity": "1",
+                                       "category": "__new__", "category_new": "Münzen"})
+    a = db.query(Article).filter_by(title="Neu").one()
+    assert a.category == "Münzen"
+    # steht danach als Auswahl bereit
+    assert '<option value="Münzen"' in client.get("/articles/new").text
+
+
+def test_keine_kategorie_moeglich(client, db):
+    client.post("/articles/new", data={"title": "Ohne", "status": "Angeboten",
+                                       "quantity": "1", "category": ""})
+    assert db.query(Article).filter_by(title="Ohne").one().category == ""
+
+
+def test_platzhalter_landet_nie_als_kategorie(client, db):
+    # "+ Neue Kategorie…" gewählt, aber kein Name eingegeben
+    client.post("/articles/new", data={"title": "Leer", "status": "Angeboten", "quantity": "1",
+                                       "category": "__new__", "category_new": ""})
+    assert db.query(Article).filter_by(title="Leer").one().category == ""
+
+
+def test_vorhandene_kategorie_bleibt_beim_bearbeiten_ausgewaehlt(client, make_article):
+    a = make_article(title="Bearbeiten", category="Modellbahn")
+    html = client.get(f"/articles/{a.id}/edit").text
+    assert '<option value="Modellbahn" selected' in html

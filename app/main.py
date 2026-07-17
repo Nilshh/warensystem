@@ -256,11 +256,22 @@ def parse_date(value: str | None) -> datetime | None:
         return None
 
 
+NEW_CATEGORY = "__new__"
+
+
+def _pick_category(data) -> str:
+    """Kategorie aus dem Dropdown — oder die neu eingegebene."""
+    category = (data.get("category") or "").strip()
+    if category == NEW_CATEGORY:
+        category = (data.get("category_new") or "").strip()
+    return category
+
+
 def apply_form(article: Article, data: dict) -> None:
     """Übernimmt Formulardaten in ein Article-Objekt."""
     article.title = (data.get("title") or "").strip() or "Ohne Titel"
     article.description = (data.get("description") or "").strip()
-    article.category = (data.get("category") or "").strip()
+    article.category = _pick_category(data)
     article.condition = (data.get("condition") or "").strip()
     new_status = (data.get("status") or "Entwurf").strip()
 
@@ -794,6 +805,7 @@ def _form_context(request: Request, article: Article | None, db: Session, error:
         "article": article,
         "statuses": STATUSES,
         "conditions": CONDITIONS,
+        "categories": all_categories(db),
         "shipping_methods": SHIPPING_METHODS,
         "shipping_options": SHIPPING_OPTIONS,
         "shipping_payers": SHIPPING_PAYERS,
