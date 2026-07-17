@@ -152,6 +152,20 @@ einen **Nutzer-Refresh-Token** (`EBAY_REFRESH_TOKEN`) und die Implementierung vo
 `sync_orders()` in [`app/ebay.py`](app/ebay.py). Solange dieser Token fehlt,
 bleibt die Sync-Schaltfläche inaktiv.
 
+## Tests
+
+Die Geschäftslogik ist durch automatisierte Tests abgesichert (Gewinn- und
+Margenberechnung, Bestandsführung, Verkaufskorrekturen, Datenmigration,
+Backup/Restore, Filter und Lagerverwaltung):
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt
+.venv/bin/pytest
+```
+
+Die Tests laufen gegen eine temporäre Datenbank und fassen deine Daten nicht an.
+
 ## Technik
 
 - **Backend**: FastAPI, SQLAlchemy, SQLite
