@@ -18,6 +18,10 @@ LXC-Container im Proxmox-Cluster. Bedienung über die **Web-UI**.
 - **Verkäufe-Reiter**: eigene Übersicht aller Verkäufe mit Suche/Jahresfilter;
   Verkäufe lassen sich **nachträglich korrigieren oder löschen** — der Bestand
   wird dabei automatisch mitgeführt.
+- **Wareneingang**: Konvolut zu einem Gesamtpreis kaufen und in Einzelartikel
+  aufteilen — der Einkaufspreis wird anteilig nach erwartetem Wert verteilt.
+- **Auswertung**: Ladenhüter (was liegt zu lange und bindet Kapital),
+  Plattform-Vergleich (Umsatz/Gewinn/Marge je Plattform) und Verkaufsdauer je Kategorie.
 - **Geführter Verkauf-Workflow** und **automatische Archivierung** ausverkaufter
   Artikel nach einstellbarer Frist (`ARCHIVE_AFTER_DAYS`, Standard 7 Tage;
   Verkäufe zählen in der Statistik weiter)

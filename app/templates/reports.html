@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Auswertung · Warenwirtschaft{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Auswertung</h1>
+</div>
+
+<!-- ------------------------------------------------ Ladenhüter -->
+<section class="card">
+  <div class="chart-head">
+    <h2>Ladenhüter</h2>
+    <form method="get" action="/reports" class="yearpick">
+      <label>Liegt länger als
+        <select name="days" onchange="this.form.submit()">
+          {% for d in [30, 60, 90, 180, 365] %}
+          <option value="{{ d }}" {{ 'selected' if d == days else '' }}>{{ d }} Tage</option>
+          {% endfor %}
+        </select>
+      </label>
+    </form>
+  </div>
+
+  {% if ladenhueter %}
+  <p class="muted">{{ ladenhueter|length }} Artikel liegen seit mindestens {{ days }} Tagen —
+    gebundenes Kapital: <strong>{{ gebundenes_kapital | eur }}</strong>.</p>
+  <div class="table-wrap">
+  <table class="data">
+    <thead>
+      <tr><th>Nr.</th><th>Titel</th><th>Lager</th><th class="num">Bestand</th>
+          <th class="num">Einkauf gebunden</th><th class="num">Angebot</th><th class="num">Liegt seit</th></tr>
+    </thead>
+    <tbody>
+      {% for x in ladenhueter %}
+      <tr onclick="window.location='/articles/{{ x.article.id }}'">
+        <td class="mono artno-cell">{{ x.article.article_no }}</td>
+        <td><strong>{{ x.article.title }}</strong>
+          {% if x.article.category %}<br><span class="muted">{{ x.article.category }}</span>{% endif %}
+        </td>
+        <td class="muted">{{ x.article.storage_location or '–' }}</td>
+        <td class="num">{{ x.article.quantity }}</td>
+        <td class="num">{{ x.article.stock_value | eur }}</td>
+        <td class="num">{{ x.article.listing_price | eur }}</td>
+        <td class="num {{ 'negative' if x.alter >= 365 else '' }}">{{ x.alter }} Tage</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted">Kein Artikel liegt länger als {{ days }} Tage. 👍</p>
+  {% endif %}
+</section>
+
+<!-- ------------------------------------------------ Plattform-Vergleich -->
+<section class="card">
+  <h2>Plattform-Vergleich</h2>
+  {% if plattformen %}
+  <div class="table-wrap">
+  <table class="data">
+    <thead>
+      <tr><th>Plattform</th><th class="num">Verkäufe</th><th class="num">Stück</th>
+          <th class="num">Umsatz</th><th class="num">Gewinn</th><th class="num">Ø Marge</th></tr>
+    </thead>
+    <tbody>
+      {% for p in plattformen %}
+      <tr>
+        <td><strong>{{ p.name }}</strong></td>
+        <td class="num">{{ p.verkaeufe }}</td>
+        <td class="num">{{ p.stueck }}</td>
+        <td class="num">{{ p.umsatz | eur }}</td>
+        <td class="num {{ 'positive' if p.gewinn >= 0 else 'negative' }}">{{ p.gewinn | eur }}</td>
+        <td class="num">{{ (p.marge ~ ' %') if p.marge is not none else '–' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted">Noch keine Verkäufe erfasst.</p>
+  {% endif %}
+</section>
+
+<!-- ------------------------------------------------ Kategorien -->
+<section class="card">
+  <h2>Kategorien: Gewinn &amp; Verkaufsdauer</h2>
+  {% if kategorien %}
+  <div class="table-wrap">
+  <table class="data">
+    <thead>
+      <tr><th>Kategorie</th><th class="num">Stück</th><th class="num">Umsatz</th>
+          <th class="num">Gewinn</th><th class="num">Ø Marge</th><th class="num">Ø bis Verkauf</th></tr>
+    </thead>
+    <tbody>
+      {% for k in kategorien %}
+      <tr>
+        <td><strong>{{ k.name }}</strong></td>
+        <td class="num">{{ k.stueck }}</td>
+        <td class="num">{{ k.umsatz | eur }}</td>
+        <td class="num {{ 'positive' if k.gewinn >= 0 else 'negative' }}">{{ k.gewinn | eur }}</td>
+        <td class="num">{{ (k.marge ~ ' %') if k.marge is not none else '–' }}</td>
+        <td class="num">{{ (k.dauer ~ ' Tage') if k.dauer is not none else '–' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="hint">„Ø bis Verkauf" = durchschnittliche Zeit vom Anlegen des Artikels bis zum Verkauf.</p>
+  {% else %}
+  <p class="muted">Noch keine Verkäufe erfasst.</p>
+  {% endif %}
+</section>
+{% endblock %}
