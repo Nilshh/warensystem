@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Wareneingang gebucht · Warenwirtschaft{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Wareneingang gebucht</h1>
+  <div class="actions">
+    <a class="btn" href="/intake">Weiteres Konvolut</a>
+    <a class="btn btn-primary" href="/articles?status=">Zur Artikelliste</a>
+  </div>
+</div>
+
+<div class="banner success">
+  ✔ {{ articles|length }} Artikel angelegt. Einkaufspreis {{ total | eur }} wurde
+  <strong>{{ verteilung }}</strong> verteilt.
+</div>
+
+<div class="table-wrap">
+<table class="data">
+  <thead>
+    <tr><th>Nr.</th><th>Titel</th><th class="num">Einkauf</th><th class="num">Angebotspreis</th></tr>
+  </thead>
+  <tbody>
+    {% for a in articles %}
+    <tr onclick="window.location='/articles/{{ a.id }}'">
+      <td class="mono artno-cell">{{ a.article_no }}</td>
+      <td><strong>{{ a.title }}</strong></td>
+      <td class="num">{{ a.purchase_cost | eur }}</td>
+      <td class="num">{{ a.listing_price | eur if a.listing_price else '–' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr class="total-row">
+      <td></td><td><strong>Summe</strong></td>
+      <td class="num"><strong>{{ total | eur }}</strong></td>
+      <td></td>
+    </tr>
+  </tfoot>
+</table>
+</div>
+
+<p class="hint">Die Artikel sind als <strong>Entwurf</strong> angelegt — Titel, Preise und Bilder
+kannst du jetzt einzeln ergänzen und dann auf „Angeboten" setzen.</p>
+{% endblock %}

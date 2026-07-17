@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Wareneingang · Warenwirtschaft{% endblock %}
+{% block content %}
+{% if error %}<div class="banner error">⚠ {{ error }}</div>{% endif %}
+
+<div class="page-head">
+  <h1>Wareneingang / Konvolut aufteilen</h1>
+  <a class="btn btn-ghost" href="/articles">Abbrechen</a>
+</div>
+
+<p class="muted" style="margin-top:-.5rem">
+  Du hast ein Konvolut zu einem Gesamtpreis gekauft? Trage hier die Einzelteile ein —
+  das System legt daraus Artikel an und verteilt den Einkaufspreis automatisch.
+</p>
+
+<form method="post" action="/intake" class="form">
+  <fieldset>
+    <legend>Einkauf</legend>
+    <div class="row">
+      <label>Gesamt-Einkaufspreis * (€)
+        <input type="number" step="0.01" name="total_cost" required placeholder="z.B. 120.00">
+        <span class="muted">Was du für das ganze Konvolut bezahlt hast</span>
+      </label>
+      <label>Kategorie
+        <input type="text" name="category" list="intake-categories" placeholder="z.B. Modellbahn">
+        <datalist id="intake-categories">
+          {% for cat in categories %}<option value="{{ cat }}">{% endfor %}
+        </datalist>
+      </label>
+      <label>Zustand
+        <input list="conditions" name="condition">
+        <datalist id="conditions">
+          {% for c in conditions %}<option value="{{ c }}">{% endfor %}
+        </datalist>
+      </label>
+    </div>
+    <div class="row">
+      <label>Lagerplatz
+        <select name="storage_location_id">
+          <option value="">– kein Lagerplatz –</option>
+          {% for loc in storage_locations %}
+          <option value="{{ loc.id }}">{{ loc.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Tags <span class="muted">(für alle Positionen)</span>
+        <input type="text" name="tags" placeholder="z.B. Konvolut Mai">
+      </label>
+      <label></label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Positionen</legend>
+    <label>Eine Position pro Zeile
+      <textarea name="items" rows="10" required
+                placeholder="PIKO Güterwagen H0 | 20&#10;Dingler Werklok | 70&#10;Rungenwagen offen | 15"></textarea>
+    </label>
+    <p class="hint">
+      <strong>Mit Preis</strong> (<code>Titel | erwarteter Verkaufspreis</code>): Der Einkaufspreis wird
+      <strong>anteilig nach Wert</strong> verteilt — die teure Lok trägt mehr Kosten als das günstige Teil.
+      Das ergibt realistische Margen.<br>
+      <strong>Ohne Preis</strong> (nur Titel): Der Einkaufspreis wird <strong>gleichmäßig</strong> aufgeteilt.<br>
+      Max. {{ intake_limit }} Positionen. Die Artikel werden als <em>Entwurf</em> angelegt — du kannst alles danach noch anpassen.
+    </p>
+  </fieldset>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">📦 Artikel anlegen</button>
+    <a class="btn btn-ghost" href="/articles">Abbrechen</a>
+  </div>
+</form>
+{% endblock %}

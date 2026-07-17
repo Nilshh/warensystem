@@ -501,6 +501,49 @@ def list_articles(
     return templates.TemplateResponse("articles.html", ctx)
 
 
+INTAKE_LIMIT = 100
+
+
+def parse_intake_lines(text: str) -> list[tuple[str, float | None]]:
+    """Zerlegt die Eingabe des Wareneingangs.
+
+    Eine Position pro Zeile, optional mit erwartetem Verkaufspreis:
+        Titel
+        Titel | 49,90
+    """
+    items: list[tuple[str, float | None]] = []
+    for line in (text or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if "|" in line:
+            title, _, price = line.partition("|")
+            p = parse_float(price)
+            items.append((title.strip() or "Ohne Titel", p if p > 0 else None))
+        else:
+            items.append((line, None))
+    return items[:INTAKE_LIMIT]
+
+
+def allocate_costs(total: float, weights: list[float] | None, count: int) -> list[float]:
+    """Verteilt einen Gesamt-Einkaufspreis auf `count` Positionen.
+
+    Mit `weights` (z.B. erwartete Verkaufspreise) anteilig, sonst gleichmäßig.
+    Rundungsdifferenzen landen auf der letzten Position, damit die Summe exakt
+    dem Gesamtpreis entspricht.
+    """
+    if count <= 0:
+        return []
+    if weights and len(weights) == count and sum(weights) > 0:
+        gesamt = sum(weights)
+        shares = [round(total * w / gesamt, 2) for w in weights]
+    else:
+        shares = [round(total / count, 2)] * count
+    diff = round(total - sum(shares), 2)
+    shares[-1] = round(shares[-1] + diff, 2)
+    return shares
+
+
 def _back_to_list(form, **extra) -> str:
     """Baut die Rücksprung-URL zur Artikelliste mit erhaltenen Filtern.
 
@@ -538,6 +581,73 @@ async def bulk_status(request: Request, db: Session = Depends(get_db)):
         db.commit()
 
     return RedirectResponse(_back_to_list(form, updated=updated), status_code=303)
+
+
+@app.get("/intake", response_class=HTMLResponse)
+def intake_form(request: Request, error: str = "", db: Session = Depends(get_db)):
+    """Wareneingang: Konvolut kaufen und in Einzelartikel aufteilen."""
+    return templates.TemplateResponse(
+        "intake.html",
+        {
+            "request": request, "error": error,
+            "conditions": CONDITIONS,
+            "categories": all_categories(db),
+            "storage_locations": all_locations(db),
+            "intake_limit": INTAKE_LIMIT,
+        },
+    )
+
+
+@app.post("/intake", response_class=HTMLResponse)
+async def intake_submit(request: Request, db: Session = Depends(get_db)):
+    form = await request.form()
+    total = parse_float(form.get("total_cost"))
+    items = parse_intake_lines(form.get("items", ""))
+
+    if not items:
+        msg = urllib.parse.quote("Bitte mindestens eine Position angeben (eine pro Zeile).")
+        return RedirectResponse(f"/intake?error={msg}", status_code=303)
+
+    prices = [p for _, p in items]
+    # Nur anteilig verteilen, wenn für ALLE Positionen ein Preis angegeben wurde
+    weights = prices if all(p is not None for p in prices) else None
+    shares = allocate_costs(total, weights, len(items))
+    verteilung = "anteilig nach erwartetem Verkaufspreis" if weights else "gleichmäßig"
+
+    loc = None
+    loc_id = form.get("storage_location_id")
+    if loc_id and str(loc_id).isdigit():
+        loc = db.get(StorageLocation, int(loc_id))
+
+    category = (form.get("category") or "").strip()
+    condition = (form.get("condition") or "").strip()
+    tags = (form.get("tags") or "").strip()
+    created = []
+    for (title, price), share in zip(items, shares):
+        article = Article(
+            title=title,
+            status="Entwurf",
+            quantity=1,
+            purchase_cost=share,
+            listing_price=price or 0.0,
+            category=category,
+            condition=condition,
+            tags=tags,
+        )
+        _set_article_storage(article, loc)
+        db.add(article)
+        db.flush()
+        assign_article_no(db, article)
+        created.append(article)
+    db.commit()
+
+    return templates.TemplateResponse(
+        "intake_result.html",
+        {
+            "request": request, "articles": created,
+            "total": total, "verteilung": verteilung,
+        },
+    )
 
 
 @app.post("/articles/bulk-category")
