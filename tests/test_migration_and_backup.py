@@ -1,24 +1,50 @@
 """Datenmigration (Alt-Verkäufe) und Sicherung/Wiederherstellung."""
 import io
 import zipfile
-from datetime import datetime, timezone
+
+from sqlalchemy import text
 
 from app import backup, maintenance, services
-from app.models import Article, Sale
+from app.models import Article
 
 
 # --- Migration der Alt-Verkäufe --------------------------------------------
+_LEGACY_DDL = {
+    "sold_price": "FLOAT DEFAULT 0", "fees": "FLOAT DEFAULT 0",
+    "sale_platform": "VARCHAR(30) DEFAULT ''", "buyer_name": "VARCHAR(150) DEFAULT ''",
+    "buyer_address": "TEXT DEFAULT ''", "payment_method": "VARCHAR(80) DEFAULT ''",
+    "tracking_carrier": "VARCHAR(80) DEFAULT ''", "tracking_number": "VARCHAR(100) DEFAULT ''",
+    "order_date": "DATETIME", "shipped_at": "DATETIME", "sold_at": "DATETIME",
+}
+
+
+def _simulate_old_database(db):
+    """Baut die Verkaufsspalten am Artikel nach, wie sie in alten DBs existieren.
+
+    Sie sind nicht mehr Teil des Modells, können aber über ein altes Backup
+    zurückkommen — genau dafür gibt es die Migration.
+    """
+    vorhanden = {r[1] for r in db.execute(text("PRAGMA table_info(articles)"))}
+    for name, ddl in _LEGACY_DDL.items():
+        if name not in vorhanden:
+            db.execute(text(f"ALTER TABLE articles ADD COLUMN {name} {ddl}"))
+    db.commit()
+
+
 def _legacy_sold_article(db) -> Article:
     """Artikel im alten Stil: Verkaufsdaten hängen am Artikel, kein Sale."""
+    _simulate_old_database(db)
     a = Article(
         title="Alt-Verkauf", status="Verkauft", quantity=1,
         purchase_cost=200, listing_price=350,
-        sold_price=340, fees=37.40,
         shipping_method="DHL", shipping_cost=5.49, shipping_payer="Käufer",
-        buyer_name="Max M.", sale_platform="eBay",
-        sold_at=datetime(2026, 3, 15, tzinfo=timezone.utc),
     )
     db.add(a)
+    db.commit()
+    db.execute(text(
+        "UPDATE articles SET sold_price=340, fees=37.40, buyer_name='Max M.', "
+        "sale_platform='eBay', sold_at='2026-03-15 00:00:00' WHERE id=:id"
+    ), {"id": a.id})
     db.commit()
     return a
 

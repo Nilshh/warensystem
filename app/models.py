@@ -85,20 +85,10 @@ class Article(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
 
-    # --- Alt-Felder (vor Einführung der Verkaufshistorie) --------------------
-    # Werden nur noch von der einmaligen Datenmigration gelesen; neue Verkäufe
-    # landen ausschließlich in der Tabelle `sales`.
-    sold_price: Mapped[float] = mapped_column(Float, default=0.0)
-    fees: Mapped[float] = mapped_column(Float, default=0.0)
-    sale_platform: Mapped[str] = mapped_column(String(30), default="")
-    buyer_name: Mapped[str] = mapped_column(String(150), default="")
-    buyer_address: Mapped[str] = mapped_column(Text, default="")
-    payment_method: Mapped[str] = mapped_column(String(80), default="")
-    tracking_carrier: Mapped[str] = mapped_column(String(80), default="")
-    tracking_number: Mapped[str] = mapped_column(String(100), default="")
-    order_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    shipped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    sold_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Hinweis: In Datenbanken aus der Zeit vor der Verkaufshistorie hängen am
+    # Artikel noch Verkaufsspalten (sold_price, buyer_name, sold_at …). Sie sind
+    # bewusst nicht Teil des Modells — `maintenance.migrate_legacy_sales()` liest
+    # sie per SQL aus und überführt sie in die Tabelle `sales`.
 
     images: Mapped[list["ArticleImage"]] = relationship(
         back_populates="article",

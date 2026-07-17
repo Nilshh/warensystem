@@ -5,10 +5,10 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI
-from sqlalchemy import select
+from sqlalchemy import inspect, select, text
 
 from . import backup, config, images
-from .database import SessionLocal
+from .database import SessionLocal, engine
 from .models import Article, ArticleImage, Sale, StorageLocation
 from .services import make_article_no
 
@@ -52,45 +52,80 @@ def backfill_storage_locations() -> None:
 
 
 
+# Spalten, die vor Einführung der Verkaufshistorie am Artikel hingen.
+# Sie sind nicht mehr Teil des Datenmodells und werden nur hier per SQL gelesen.
+_LEGACY_COLUMNS = (
+    "sold_price", "fees", "sale_platform", "buyer_name", "buyer_address",
+    "payment_method", "tracking_carrier", "tracking_number",
+    "order_date", "shipped_at", "sold_at",
+)
+
+
+def _parse_dt(value):
+    """SQLite liefert Datumsangaben als Text zurück."""
+    if value is None or isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
+
+
 def migrate_legacy_sales() -> int:
-    """Überführt Alt-Verkäufe (Verkaufsdaten am Artikel) einmalig in die Sale-Tabelle.
+    """Überführt Alt-Verkäufe (Verkaufsdaten am Artikel) in die Sale-Tabelle.
+
+    Betrifft Datenbanken aus der Zeit vor der Verkaufshistorie — auch solche,
+    die über ein altes Backup wieder eingespielt werden. Die Alt-Spalten werden
+    bewusst per SQL gelesen, da sie nicht mehr im Modell stehen.
 
     Idempotent: Artikel, die bereits einen Verkauf haben, werden übersprungen.
     Verkaufte Alt-Artikel bekommen Bestand 0.
     """
+    vorhandene = {c["name"] for c in inspect(engine).get_columns("articles")}
+    if not {"sold_at", "sold_price"} <= vorhandene:
+        return 0            # neue Datenbank ohne Alt-Spalten — nichts zu tun
+
+    spalten = ", ".join(
+        ("id", "purchase_cost", "shipping_method", "shipping_cost",
+         "shipping_payer", "note") + _LEGACY_COLUMNS
+    )
     db = SessionLocal()
     try:
-        legacy = db.scalars(select(Article).where(Article.sold_at.is_not(None))).all()
-        migrated = 0
-        for a in legacy:
-            if a.sales:  # bereits migriert
-                continue
+        rows = db.execute(text(
+            f"SELECT {spalten} FROM articles "
+            "WHERE sold_at IS NOT NULL "
+            "  AND id NOT IN (SELECT article_id FROM sales)"
+        )).mappings().all()
+
+        for r in rows:
             db.add(Sale(
-                article_id=a.id,
+                article_id=r["id"],
                 quantity=1,
-                sold_price=a.sold_price,
-                unit_purchase_cost=a.purchase_cost,
-                fees=a.fees,
-                shipping_method=a.shipping_method,
-                shipping_cost=a.shipping_cost,
-                shipping_payer=a.shipping_payer or "Käufer",
-                sale_platform=a.sale_platform,
-                buyer_name=a.buyer_name,
-                buyer_address=a.buyer_address,
-                payment_method=a.payment_method,
-                tracking_carrier=a.tracking_carrier,
-                tracking_number=a.tracking_number,
-                note=a.note,
-                order_date=a.order_date,
-                shipped_at=a.shipped_at,
-                sold_at=a.sold_at,
+                sold_price=r["sold_price"] or 0.0,
+                unit_purchase_cost=r["purchase_cost"] or 0.0,
+                fees=r["fees"] or 0.0,
+                shipping_method=r["shipping_method"] or "",
+                shipping_cost=r["shipping_cost"] or 0.0,
+                shipping_payer=r["shipping_payer"] or "Käufer",
+                sale_platform=r["sale_platform"] or "",
+                buyer_name=r["buyer_name"] or "",
+                buyer_address=r["buyer_address"] or "",
+                payment_method=r["payment_method"] or "",
+                tracking_carrier=r["tracking_carrier"] or "",
+                tracking_number=r["tracking_number"] or "",
+                note=r["note"] or "",
+                order_date=_parse_dt(r["order_date"]),
+                shipped_at=_parse_dt(r["shipped_at"]),
+                sold_at=_parse_dt(r["sold_at"]),
             ))
-            a.quantity = 0  # Einzelstück war verkauft
-            migrated += 1
-        if migrated:
+            # Einzelstück war verkauft
+            db.execute(text("UPDATE articles SET quantity = 0 WHERE id = :id"),
+                       {"id": r["id"]})
+        if rows:
             db.commit()
-            log.info("Migration: %d Alt-Verkäufe in die Verkaufshistorie übernommen.", migrated)
-        return migrated
+            log.info("Migration: %d Alt-Verkäufe in die Verkaufshistorie übernommen.",
+                     len(rows))
+        return len(rows)
     finally:
         db.close()
 
