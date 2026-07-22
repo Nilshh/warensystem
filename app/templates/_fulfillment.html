@@ -1,0 +1,43 @@
+{# Wiederverwendbare Bausteine für den Abwicklungsstatus eines Verkaufs #}
+
+{% macro badge(status) %}
+<span class="badge fulfil-{{ status | lower }}">{{ fulfillment_label(status) }}</span>
+{% endmacro %}
+
+{# Aktionsknöpfe: nächster Schritt(e) + Stornieren. `back` ist die Ziel-URL. #}
+{% macro actions(sale, back='/sales') %}
+<span class="fulfil-actions">
+  {% if sale.fulfillment == FULFILLMENT_CANCELLED %}
+    <form method="post" action="/sales/{{ sale.id }}/fulfillment" style="display:inline">
+      <input type="hidden" name="to" value="Verkauft">
+      <input type="hidden" name="back" value="{{ back }}">
+      <button class="btn btn-sm" type="submit">↩ Storno aufheben</button>
+    </form>
+  {% else %}
+    {% set r = fulfillment_rank(sale.fulfillment) %}
+    {% if r < fulfillment_rank('Bezahlt') %}
+      {{ step_button(sale, 'Bezahlt', '💶 Bezahlt', back, primary=True) }}
+    {% endif %}
+    {% if r < fulfillment_rank('Versendet') %}
+      {{ step_button(sale, 'Versendet', '📦 Versendet', back, primary=(r >= fulfillment_rank('Bezahlt'))) }}
+    {% endif %}
+    {% if r >= fulfillment_rank('Versendet') and r < fulfillment_rank('Abgeschlossen') %}
+      {{ step_button(sale, 'Abgeschlossen', '✔ Abschließen', back, primary=True) }}
+    {% endif %}
+    <form method="post" action="/sales/{{ sale.id }}/fulfillment" style="display:inline"
+          onsubmit="return confirm('Verkauf stornieren? Die {{ sale.quantity }} Stück werden dem Bestand wieder gutgeschrieben.')">
+      <input type="hidden" name="to" value="{{ FULFILLMENT_CANCELLED }}">
+      <input type="hidden" name="back" value="{{ back }}">
+      <button class="btn btn-sm btn-danger" type="submit">Stornieren</button>
+    </form>
+  {% endif %}
+</span>
+{% endmacro %}
+
+{% macro step_button(sale, target, label, back, primary=False) %}
+<form method="post" action="/sales/{{ sale.id }}/fulfillment" style="display:inline">
+  <input type="hidden" name="to" value="{{ target }}">
+  <input type="hidden" name="back" value="{{ back }}">
+  <button class="btn btn-sm {{ 'btn-primary' if primary else '' }}" type="submit">{{ label }}</button>
+</form>
+{% endmacro %}

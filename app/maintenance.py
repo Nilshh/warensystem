@@ -10,6 +10,7 @@ from sqlalchemy import inspect, select, text
 from . import backup, carriers, config, images
 from .database import SessionLocal, engine
 from .models import Article, ArticleImage, Sale, StorageLocation
+from . import services
 from .services import make_article_no
 
 log = logging.getLogger("warensystem")
@@ -132,6 +133,57 @@ def migrate_legacy_sales() -> int:
 
 
 
+def backfill_fulfillment() -> None:
+    """Setzt bei Bestandsverkäufen einen sinnvollen Abwicklungsstatus.
+
+    Bestehende (historische) Verkäufe gelten als abgeschlossen, damit sie nicht
+    in der Aufgabenliste auftauchen. Nur ausgeführt, wenn die Spalte existiert.
+    """
+    if "fulfillment" not in {c["name"] for c in inspect(engine).get_columns("sales")}:
+        return
+    db = SessionLocal()
+    try:
+        offen = db.scalars(
+            select(Sale).where((Sale.fulfillment == "") | (Sale.fulfillment.is_(None)))
+        ).all()
+        for s in offen:
+            s.fulfillment = "Abgeschlossen"
+        if offen:
+            db.commit()
+            log.info("Backfill: %d Bestandsverkäufe auf 'Abgeschlossen' gesetzt.", len(offen))
+    finally:
+        db.close()
+
+
+def auto_complete_sales() -> int:
+    """Schließt zugestellte Verkäufe nach AUTO_COMPLETE_DAYS automatisch ab."""
+    days = config.AUTO_COMPLETE_DAYS
+    if days <= 0:
+        return 0
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    db = SessionLocal()
+    try:
+        candidates = db.scalars(
+            select(Sale).where(Sale.fulfillment == "Zugestellt")
+        ).all()
+        n = 0
+        for s in candidates:
+            geliefert = s.tracking_delivered_at
+            if geliefert is None:
+                continue
+            if geliefert.tzinfo is None:
+                geliefert = geliefert.replace(tzinfo=timezone.utc)
+            if geliefert <= cutoff:
+                s.fulfillment = "Abgeschlossen"
+                n += 1
+        if n:
+            db.commit()
+            log.info("Auto-Abschluss: %d zugestellte Verkäufe abgeschlossen.", n)
+        return n
+    finally:
+        db.close()
+
+
 def archive_old_sales() -> int:
     """Archiviert ausverkaufte Artikel, deren letzter Verkauf länger zurückliegt.
 
@@ -230,6 +282,7 @@ def update_tracking() -> int:
             s.tracking_checked_at = datetime.now(timezone.utc)
             if res.status == carriers.ZUGESTELLT:
                 s.tracking_delivered_at = res.delivered_at or datetime.now(timezone.utc)
+                services.advance_fulfillment(s, "Zugestellt")   # Abwicklung mitziehen
             aktualisiert += 1
 
         if aktualisiert:
@@ -263,9 +316,10 @@ async def _archive_loop():
     """Prüft periodisch auf zu archivierende Verkäufe (alle 6 Stunden)."""
     while True:
         try:
+            await asyncio.to_thread(auto_complete_sales)   # zugestellt -> abgeschlossen
             await asyncio.to_thread(archive_old_sales)
         except Exception:  # Loop niemals sterben lassen
-            log.exception("Auto-Archivierung fehlgeschlagen")
+            log.exception("Auto-Archivierung/Abschluss fehlgeschlagen")
         await asyncio.sleep(6 * 3600)
 
 

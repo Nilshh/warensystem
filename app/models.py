@@ -39,6 +39,17 @@ SHIPPING_PAYERS = ["Käufer", "Verkäufer"]
 # Verkaufsplattform (für verkaufte Artikel)
 SALE_PLATFORMS = ["eBay", "Kleinanzeigen", "Sonstige"]
 
+# Abwicklungs-Ablauf eines Verkaufs (in Reihenfolge) + Ausnahme
+FULFILLMENT_STEPS = ["Verkauft", "Bezahlt", "Versendet", "Zugestellt", "Abgeschlossen"]
+FULFILLMENT_CANCELLED = "Storniert"
+FULFILLMENTS = FULFILLMENT_STEPS + [FULFILLMENT_CANCELLED]
+_FULFILLMENT_RANK = {name: i for i, name in enumerate(FULFILLMENT_STEPS)}
+
+
+def fulfillment_rank(status: str) -> int:
+    """Position im Ablauf; unbekannt/Storniert -> -1."""
+    return _FULFILLMENT_RANK.get(status, -1)
+
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
@@ -102,9 +113,14 @@ class Article(Base):
     )
 
     # --- Kennzahlen aus der Verkaufshistorie ---------------------------------
+    # Stornierte Verkäufe zählen nicht mit.
+    @property
+    def _active_sales(self) -> list["Sale"]:
+        return [s for s in self.sales if s.counts]
+
     @property
     def has_sales(self) -> bool:
-        return bool(self.sales)
+        return bool(self._active_sales)
 
     @property
     def in_stock(self) -> bool:
@@ -112,23 +128,23 @@ class Article(Base):
 
     @property
     def sold_quantity(self) -> int:
-        return sum(s.quantity for s in self.sales)
+        return sum(s.quantity for s in self._active_sales)
 
     @property
     def revenue(self) -> float:
-        """Summe aller Verkaufserlöse dieses Artikels."""
-        return round(sum(s.sold_price for s in self.sales), 2)
+        """Summe aller Verkaufserlöse dieses Artikels (ohne Stornos)."""
+        return round(sum(s.sold_price for s in self._active_sales), 2)
 
     @property
     def total_profit(self) -> float | None:
         """Summe der Gewinne aller Verkäufe (None, wenn noch nichts verkauft)."""
-        if not self.sales:
+        if not self._active_sales:
             return None
-        return round(sum(s.profit for s in self.sales), 2)
+        return round(sum(s.profit for s in self._active_sales), 2)
 
     @property
     def last_sold_at(self) -> datetime | None:
-        dates = [s.sold_at for s in self.sales if s.sold_at]
+        dates = [s.sold_at for s in self._active_sales if s.sold_at]
         return max(dates) if dates else None
 
     @property
@@ -176,6 +192,11 @@ class Sale(Base):
     tracking_checked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     tracking_delivered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
+    # Abwicklungs-Ablauf (Verkauft -> Bezahlt -> Versendet -> Zugestellt -> Abgeschlossen)
+    fulfillment: Mapped[str] = mapped_column(String(20), default="Verkauft")
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     order_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     shipped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     sold_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
@@ -185,6 +206,20 @@ class Sale(Base):
     @property
     def is_delivered(self) -> bool:
         return self.tracking_status == "zugestellt"
+
+    @property
+    def is_cancelled(self) -> bool:
+        return self.fulfillment == FULFILLMENT_CANCELLED
+
+    @property
+    def counts(self) -> bool:
+        """Zählt dieser Verkauf für Umsatz/Gewinn? (Stornos nicht)"""
+        return not self.is_cancelled
+
+    @property
+    def is_open(self) -> bool:
+        """Noch offen = weder abgeschlossen noch storniert."""
+        return self.fulfillment not in ("Abgeschlossen", FULFILLMENT_CANCELLED)
 
     @property
     def profit(self) -> float:

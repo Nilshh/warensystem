@@ -86,9 +86,39 @@ h2 { font-size: 1.05rem; margin: 0 0 .75rem; }
 table.sales { min-width: 1000px; }
 table.sales .col-datum,
 table.sales .col-kaeufer,
-table.sales .col-plattform,
-table.sales .col-sendung { white-space: nowrap; }
+table.sales .col-plattform { white-space: nowrap; }
 table.sales .col-artikel { min-width: 220px; }
+
+/* Abwicklungsstatus */
+.badge.fulfil-verkauft { background: #eef0f4; color: #5b6572; }
+.badge.fulfil-bezahlt { background: #e2edff; color: #2b6cff; }
+.badge.fulfil-versendet { background: #e2edff; color: #1d54d8; }
+.badge.fulfil-zugestellt { background: #e0f5e9; color: #12a150; }
+.badge.fulfil-abgeschlossen { background: #e0f5e9; color: #0e7a3a; }
+.badge.fulfil-storniert { background: #fbeaea; color: #b02a2a; }
+.col-status { white-space: nowrap; }
+tr.row-cancelled td { opacity: .55; }
+tr.row-cancelled .col-artikel a { text-decoration: line-through; }
+.fulfil-actions { display: inline-flex; gap: .3rem; flex-wrap: wrap; }
+
+/* Status-Leiste im Verkaufsformular */
+.fulfil-panel { display: flex; flex-direction: column; gap: .8rem; }
+.fulfil-track { display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; }
+.fulfil-step { font-size: .8rem; padding: .2rem .55rem; border-radius: 20px; background: #f0f2f5; color: var(--muted); }
+.fulfil-step.done { background: #e0f5e9; color: #12a150; }
+.fulfil-step.current { outline: 2px solid var(--primary); color: var(--text); font-weight: 600; }
+.fulfil-step.cancelled { background: #fbeaea; color: #b02a2a; outline-color: var(--red); }
+.fulfil-arrow { color: var(--muted); }
+.fulfil-do { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+
+/* Aufgaben-Karte */
+.task-card { border-left: 3px solid var(--green); }
+.task-list { list-style: none; padding: 0; margin: 0; }
+.task-list li { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+  padding: .5rem 0; border-bottom: 1px solid #f0f1f4; font-size: .9rem; }
+.task-list li:last-child { border-bottom: none; }
+.task-list .task-item { flex: 1; min-width: 200px; }
+.task-list .fulfil-actions { margin-left: auto; }
 
 /* Sendungsverfolgung */
 .badge.track-zugestellt { background: #e0f5e9; color: #12a150; }

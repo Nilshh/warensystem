@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, selectinload
 from .. import config, ebay, images
 from ..database import get_db
 from ..models import Article, ArticleImage, Sale, StorageLocation, STATUSES, CONDITIONS, SHIPPING_METHODS, SHIPPING_OPTIONS, SHIPPING_PAYERS, SALE_PLATFORMS
-from ..services import assign_article_no, ALLOWED_IMAGE_EXT, parse_float, parse_date, apply_form, set_status, _set_article_storage, apply_storage, all_categories, all_locations, SORT_COLUMNS, INTAKE_LIMIT, parse_intake_lines, allocate_costs, _back_to_list, _form_context, _delete_image_files, _create_article_from_item, BULK_IMPORT_LIMIT, _get_article, _article_url, make_qr_svg, _sync_stock_status
+from ..services import assign_article_no, ALLOWED_IMAGE_EXT, parse_float, parse_date, apply_form, set_status, _set_article_storage, apply_storage, all_categories, all_locations, SORT_COLUMNS, INTAKE_LIMIT, parse_intake_lines, allocate_costs, _back_to_list, _form_context, _delete_image_files, _create_article_from_item, BULK_IMPORT_LIMIT, _get_article, _article_url, make_qr_svg, _sync_stock_status, advance_fulfillment
 from ..web import templates, format_eur
 
 router = APIRouter()
@@ -394,6 +394,9 @@ async def sell_submit(article_id: int, request: Request, db: Session = Depends(g
         shipped_at=parse_date(form.get("shipped_at")),
         sold_at=datetime.now(timezone.utc),
     )
+    # Abwicklung: schon beim Erfassen versendet? -> gleich 'Versendet'
+    if sale.shipped_at:
+        advance_fulfillment(sale, "Versendet")
     db.add(sale)
 
     # Bestand reduzieren; bei Ausverkauf Status setzen und Lagerplatz freigeben

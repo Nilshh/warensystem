@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_fulfillment.html" as f %}
 {% block title %}Verkäufe · Warenwirtschaft{% endblock %}
 {% block content %}
 {% if msg %}<div class="banner success">✔ {{ msg }}</div>{% endif %}
@@ -14,6 +15,12 @@
     <option value="">Alle Jahre</option>
     {% for y in years %}
     <option value="{{ y }}" {{ 'selected' if y == year else '' }}>{{ y }}</option>
+    {% endfor %}
+  </select>
+  <select name="status">
+    <option value="">Alle Status</option>
+    {% for s in fulfillments %}
+    <option value="{{ s }}" {{ 'selected' if s == active_status else '' }}>{{ fulfillment_label(s) }}</option>
     {% endfor %}
   </select>
   <button class="btn" type="submit">Filtern</button>
@@ -41,12 +48,12 @@
       <th class="col-datum">Verkauft am</th><th class="col-artikel">Artikel</th><th class="num">Stück</th>
       <th class="num">Erlös</th><th class="num">Gebühren</th><th class="num">Gewinn</th>
       <th class="col-kaeufer">Käufer</th><th class="col-plattform">Plattform</th>
-      <th class="col-sendung">Sendung</th><th></th>
+      <th class="col-status">Status</th><th></th>
     </tr>
   </thead>
   <tbody>
     {% for s in sales %}
-    <tr>
+    <tr class="{{ 'row-cancelled' if s.is_cancelled else '' }}">
       <td class="col-datum">{{ s.sold_at | date }}</td>
       <td class="col-artikel">
         {% if s.article %}
@@ -59,14 +66,11 @@
       <td class="num {{ 'positive' if s.profit >= 0 else 'negative' }}">{{ s.profit | eur }}</td>
       <td class="col-kaeufer">{{ s.buyer_name or '–' }}</td>
       <td class="col-plattform">{{ s.sale_platform or '–' }}</td>
-      <td class="col-sendung">
-        {% if s.tracking_status %}
-        <span class="badge track-{{ s.tracking_status }}" title="{{ s.tracking_status_text }}">
-          {{ {'zugestellt':'✓ Zugestellt','unterwegs':'Unterwegs','problem':'⚠ Problem','unbekannt':'Unbekannt'}[s.tracking_status] }}
-        </span>
-        {% elif s.tracking_number %}
-        <span class="muted">–</span>
-        {% else %}<span class="muted">–</span>{% endif %}
+      <td class="col-status">
+        {{ f.badge(s.fulfillment) }}
+        {% if s.tracking_status and s.tracking_status != 'zugestellt' %}
+        <br><span class="muted" title="{{ s.tracking_status_text }}">📦 {{ s.tracking_status_text or 'unterwegs' }}</span>
+        {% endif %}
       </td>
       <td class="row-actions">
         <a class="btn btn-sm" href="/sales/{{ s.id }}/edit">Bearbeiten</a>

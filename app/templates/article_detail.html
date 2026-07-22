@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_fulfillment.html" as f %}
 {% block title %}{{ article.title }} · Warenwirtschaft{% endblock %}
 {% block content %}
 {% if msg %}<div class="banner success">✔ {{ msg }}</div>{% endif %}
@@ -143,23 +144,19 @@
       <tr>
         <th>Verkauft am</th><th class="num">Stück</th><th class="num">Erlös</th>
         <th class="num">Gebühren</th><th class="num">Gewinn</th>
-        <th>Käufer</th><th>Plattform</th><th>Versand</th><th></th>
+        <th>Käufer</th><th>Status</th><th></th>
       </tr>
     </thead>
     <tbody>
       {% for s in article.sales|reverse %}
-      <tr>
+      <tr class="{{ 'row-cancelled' if s.is_cancelled else '' }}">
         <td>{{ s.sold_at | date }}</td>
         <td class="num">{{ s.quantity }}</td>
         <td class="num">{{ s.sold_price | eur }}</td>
         <td class="num">{{ s.fees | eur }}</td>
         <td class="num {{ 'positive' if s.profit >= 0 else 'negative' }}">{{ s.profit | eur }}</td>
         <td>{{ s.buyer_name or '–' }}</td>
-        <td>{{ s.sale_platform or '–' }}</td>
-        <td>
-          {{ s.shipping_method or '–' }}
-          {% if s.tracking_number %}<br><span class="muted mono">{{ s.tracking_number }}</span>{% endif %}
-        </td>
+        <td>{{ f.badge(s.fulfillment) }}</td>
         <td class="row-actions">
           <a class="btn btn-sm" href="/sales/{{ s.id }}/edit">Bearbeiten</a>
           <a class="btn btn-sm" href="/sales/{{ s.id }}/lieferschein" target="_blank">🧾</a>

@@ -1,6 +1,10 @@
 {% extends "base.html" %}
+{% import "_fulfillment.html" as f %}
 {% block title %}Verkauf bearbeiten · Warenwirtschaft{% endblock %}
 {% block content %}
+{% if request.query_params.get('msg') %}
+<div class="banner success">✔ {{ request.query_params.get('msg') }}</div>
+{% endif %}
 {% if request.query_params.get('error') %}
 <div class="banner error">⚠ {{ request.query_params.get('error') }}</div>
 {% endif %}
@@ -17,6 +21,22 @@
   {% endif %}
   · Verkauf-Nr. LS-{{ '%05d' % sale.id }}
 </p>
+
+<section class="card fulfil-panel">
+  <div class="fulfil-track">
+    {% for step in fulfillment_steps %}
+    <span class="fulfil-step {{ 'done' if fulfillment_rank(sale.fulfillment) >= fulfillment_rank(step) and not sale.is_cancelled else '' }} {{ 'current' if sale.fulfillment == step else '' }}">
+      {{ fulfillment_label(step) }}
+    </span>
+    {% if not loop.last %}<span class="fulfil-arrow">→</span>{% endif %}
+    {% endfor %}
+    {% if sale.is_cancelled %}<span class="fulfil-step current cancelled">{{ fulfillment_label(fulfillment_cancelled) }}</span>{% endif %}
+  </div>
+  <div class="fulfil-do">
+    <span class="muted">Aktueller Status: {{ f.badge(sale.fulfillment) }} — nächster Schritt:</span>
+    {{ f.actions(sale, '/sales/' ~ sale.id ~ '/edit') }}
+  </div>
+</section>
 
 <div class="banner info">
   Änderst du die Stückzahl, wird der <strong>Bestand automatisch mitkorrigiert</strong>.

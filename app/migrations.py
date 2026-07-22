@@ -40,6 +40,9 @@ _EXPECTED = {
         "tracking_status_text": "VARCHAR(200) DEFAULT ''",
         "tracking_checked_at": "DATETIME",
         "tracking_delivered_at": "DATETIME",
+        "fulfillment": "VARCHAR(20) DEFAULT 'Verkauft'",
+        "paid_at": "DATETIME",
+        "cancelled_at": "DATETIME",
     },
 }
 

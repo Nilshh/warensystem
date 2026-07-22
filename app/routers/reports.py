@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
-from ..models import Article, Sale
+from ..models import Article, Sale, FULFILLMENT_CANCELLED
 from ..services import _age_days
 from ..web import templates
 
@@ -29,7 +29,10 @@ def reports(request: Request, days: int = 90, db: Session = Depends(get_db)):
     gebundenes_kapital = round(sum(x["article"].stock_value for x in ladenhueter), 2)
 
     # Verkäufe einmal laden (mit Artikel) und für beide Auswertungen nutzen
-    alle_verkaeufe = db.scalars(select(Sale).options(joinedload(Sale.article))).all()
+    alle_verkaeufe = db.scalars(
+        select(Sale).options(joinedload(Sale.article))
+        .where(Sale.fulfillment != FULFILLMENT_CANCELLED)
+    ).all()
 
     # --- Plattform-Vergleich ------------------------------------------------
     plattformen: dict[str, dict] = {}

@@ -3,8 +3,25 @@ from pathlib import Path
 
 from fastapi.templating import Jinja2Templates
 
+from .models import FULFILLMENT_STEPS, FULFILLMENT_CANCELLED, fulfillment_rank
+
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+# Abwicklungsstatus: Beschriftung (mit Symbol) und CSS-Klasse
+FULFILLMENT_LABELS = {
+    "Verkauft": "🛒 Verkauft",
+    "Bezahlt": "💶 Bezahlt",
+    "Versendet": "📦 Versendet",
+    "Zugestellt": "✓ Zugestellt",
+    "Abgeschlossen": "✔ Abgeschlossen",
+    FULFILLMENT_CANCELLED: "✕ Storniert",
+}
+
+templates.env.globals["fulfillment_label"] = lambda s: FULFILLMENT_LABELS.get(s, s or "–")
+templates.env.globals["fulfillment_rank"] = fulfillment_rank
+templates.env.globals["FULFILLMENT_STEPS"] = FULFILLMENT_STEPS
+templates.env.globals["FULFILLMENT_CANCELLED"] = FULFILLMENT_CANCELLED
 
 
 def format_eur(value) -> str:

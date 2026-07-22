@@ -16,6 +16,9 @@ DEFAULT_EBAY_FEE_PERCENT = float(os.getenv("EBAY_FEE_PERCENT", "11.0"))
 # Verkaufte Artikel nach X Tagen automatisch archivieren (0 = deaktiviert)
 ARCHIVE_AFTER_DAYS = int(os.getenv("ARCHIVE_AFTER_DAYS", "7"))
 
+# Zugestellte Verkäufe nach X Tagen automatisch abschließen (0 = deaktiviert)
+AUTO_COMPLETE_DAYS = int(os.getenv("AUTO_COMPLETE_DAYS", "14"))
+
 # Automatische Sicherungen: Intervall in Stunden (0 = deaktiviert)
 AUTO_BACKUP_HOURS = int(os.getenv("AUTO_BACKUP_HOURS", "24"))
 # Ablageort der Sicherungen (im Container per Volume auf ./backups gemappt)

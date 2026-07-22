@@ -9,8 +9,14 @@ from sqlalchemy.orm import Session, joinedload
 
 from .. import config
 from ..database import get_db
-from ..models import Sale, SHIPPING_METHODS, SHIPPING_OPTIONS, SHIPPING_PAYERS, SALE_PLATFORMS
-from ..services import parse_float, parse_date, _sold_years, _sync_stock_status, _get_sale
+from ..models import (
+    Sale, SHIPPING_METHODS, SHIPPING_OPTIONS, SHIPPING_PAYERS, SALE_PLATFORMS,
+    FULFILLMENTS, FULFILLMENT_STEPS, FULFILLMENT_CANCELLED,
+)
+from ..services import (
+    parse_float, parse_date, _sold_years, _sync_stock_status, _get_sale,
+    set_fulfillment, advance_fulfillment,
+)
 from ..web import templates, format_eur
 
 router = APIRouter()
@@ -18,16 +24,18 @@ router = APIRouter()
 
 @router.get("/sales", response_class=HTMLResponse)
 def sales_list(
-    request: Request, year: int | None = None, q: str = "",
+    request: Request, year: int | None = None, q: str = "", status: str = "",
     msg: str = "", error: str = "", db: Session = Depends(get_db),
 ):
-    """Übersicht aller Verkäufe (mit Jahresfilter und Suche)."""
+    """Übersicht aller Verkäufe (mit Jahres-, Status- und Textfilter)."""
     sales = db.scalars(
         select(Sale).options(joinedload(Sale.article)).order_by(Sale.sold_at.desc())
     ).all()
     years = _sold_years(db)
     if year:
         sales = [s for s in sales if s.sold_at and s.sold_at.year == year]
+    if status:
+        sales = [s for s in sales if s.fulfillment == status]
     if q:
         needle = q.lower()
         sales = [
@@ -36,16 +44,34 @@ def sales_list(
             or needle in (s.article.title if s.article else "").lower()
             or needle in (s.article.article_no if s.article else "").lower()
         ]
+    # Umsatz/Gewinn ohne Stornos
+    zaehlend = [s for s in sales if s.counts]
     return templates.TemplateResponse(
         "sales_list.html",
         {
             "request": request, "sales": sales, "years": years,
             "year": year, "q": q, "msg": msg, "error": error,
-            "umsatz": round(sum(s.sold_price for s in sales), 2),
-            "gewinn": round(sum(s.profit for s in sales), 2),
-            "stueck": sum(s.quantity for s in sales),
+            "active_status": status, "fulfillments": FULFILLMENTS,
+            "umsatz": round(sum(s.sold_price for s in zaehlend), 2),
+            "gewinn": round(sum(s.profit for s in zaehlend), 2),
+            "stueck": sum(s.quantity for s in zaehlend),
         },
     )
+
+
+@router.post("/sales/{sale_id}/fulfillment")
+async def sale_set_fulfillment(sale_id: int, request: Request, db: Session = Depends(get_db)):
+    """Setzt den Abwicklungsstatus eines Verkaufs (Aktionsknöpfe)."""
+    sale = _get_sale(db, sale_id)
+    form = await request.form()
+    target = (form.get("to") or "").strip()
+    back = form.get("back") or "/sales"
+    if target in FULFILLMENTS:
+        set_fulfillment(db, sale, target)
+        db.commit()
+    sep = "&" if "?" in back else "?"
+    note = urllib.parse.quote(f"Status: {sale.fulfillment}.")
+    return RedirectResponse(f"{back}{sep}msg={note}", status_code=303)
 
 
 @router.get("/sales/{sale_id}/edit", response_class=HTMLResponse)
@@ -62,6 +88,8 @@ def sale_edit_form(sale_id: int, request: Request, db: Session = Depends(get_db)
             "fee_percent": config.DEFAULT_EBAY_FEE_PERCENT,
             # Höchstmenge: bisherige Menge + noch verfügbarer Bestand
             "max_qty": sale.quantity + (sale.article.quantity if sale.article else 0),
+            "fulfillment_steps": FULFILLMENT_STEPS,
+            "fulfillment_cancelled": FULFILLMENT_CANCELLED,
         },
     )
 
@@ -99,6 +127,10 @@ async def sale_edit(sale_id: int, request: Request, db: Session = Depends(get_db
     sold_at = parse_date(form.get("sold_at"))
     if sold_at:
         sale.sold_at = sold_at
+
+    # Abwicklung mitziehen: Versanddatum -> mindestens 'Versendet'
+    if sale.shipped_at:
+        advance_fulfillment(sale, "Versendet")
 
     if article:
         article.quantity -= delta          # Bestand entsprechend korrigieren

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from .. import carriers, config, ebay
 from ..database import get_db
-from ..models import Article, Sale, STATUSES
+from ..models import Article, Sale, STATUSES, FULFILLMENT_CANCELLED
 from ..services import MONTH_NAMES, _sold_years
 from ..web import templates
 
@@ -41,8 +41,11 @@ def dashboard(
     if year is None:
         year = years[0] if years else datetime.now(timezone.utc).year
 
-    # Alle Verkäufe des gewählten Jahres (inkl. archivierter Artikel)
-    all_sales = db.scalars(select(Sale).where(Sale.sold_at.is_not(None))).all()
+    # Alle zählenden Verkäufe des gewählten Jahres (Stornos ausgenommen)
+    all_sales = db.scalars(
+        select(Sale).where(Sale.sold_at.is_not(None),
+                           Sale.fulfillment != FULFILLMENT_CANCELLED)
+    ).all()
     sold = [s for s in all_sales if s.sold_at.year == year]
 
     umsatz = round(sum(s.sold_price for s in sold), 2)
@@ -78,6 +81,14 @@ def dashboard(
                 haengend.append({"sale": s, "tage": (datetime.now(timezone.utc) - seit).days})
         haengend.sort(key=lambda x: x["tage"], reverse=True)
 
+    # Offene Aufgaben: Verkäufe, die noch abgewickelt werden müssen
+    zu_versenden = db.scalars(
+        select(Sale)
+        .options(joinedload(Sale.article))
+        .where(Sale.fulfillment.in_(("Verkauft", "Bezahlt")))
+        .order_by(Sale.sold_at)
+    ).all()
+
     # Bestand: gebundenes Kapital und potenzieller Umsatz (jahresunabhängig)
     offen = db.scalars(select(Article).where(Article.quantity > 0)).all()
     gebundenes_kapital = round(sum(a.stock_value for a in offen), 2)
@@ -105,6 +116,7 @@ def dashboard(
         "error": error,
         "haengend": haengend,
         "stuck_days": config.TRACKING_STUCK_DAYS,
+        "zu_versenden": zu_versenden,
     }
     return templates.TemplateResponse("dashboard.html", ctx)
 

@@ -13,6 +13,7 @@ from . import config
 from .database import Base, engine
 from .maintenance import (
     backfill_article_numbers,
+    backfill_fulfillment,
     backfill_storage_locations,
     lifespan,
     migrate_legacy_sales,
@@ -28,6 +29,7 @@ run_migrations(engine)
 backfill_article_numbers()
 backfill_storage_locations()
 migrate_legacy_sales()
+backfill_fulfillment()
 
 app = FastAPI(title="Warenwirtschaftssystem", lifespan=lifespan)
 

@@ -9,7 +9,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from . import config, ebay, images
-from .models import Article, ArticleImage, Sale, StorageLocation, STATUSES, CONDITIONS, SHIPPING_METHODS, SHIPPING_OPTIONS, SHIPPING_PAYERS, SALE_PLATFORMS
+from .models import (
+    Article, ArticleImage, Sale, StorageLocation, STATUSES, CONDITIONS,
+    SHIPPING_METHODS, SHIPPING_OPTIONS, SHIPPING_PAYERS, SALE_PLATFORMS,
+    FULFILLMENT_CANCELLED, fulfillment_rank,
+)
 
 
 def make_article_no(article_id: int) -> str:
@@ -339,6 +343,68 @@ def _sync_stock_status(article: Article) -> None:
     elif article.status in ("Verkauft", "Archiviert"):
         # Bestand wieder da (z.B. Verkauf korrigiert/gelöscht) -> wieder anbieten
         article.status = "Angeboten"
+
+
+def _now_utc() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def rebook_stock(db: Session, sale: Sale) -> None:
+    """Bucht die Stückzahl eines Verkaufs zurück in den Bestand."""
+    article = sale.article
+    if article:
+        article.quantity += sale.quantity
+        _sync_stock_status(article)
+
+
+def advance_fulfillment(sale: Sale, target: str) -> bool:
+    """Schaltet den Abwicklungsstatus vorwärts (nie zurück, nie aus 'Storniert').
+
+    Für die Automatik gedacht. Gibt True zurück, wenn etwas geändert wurde.
+    """
+    if sale.is_cancelled:
+        return False
+    if fulfillment_rank(target) <= fulfillment_rank(sale.fulfillment):
+        return False
+    _stamp_fulfillment(sale, target)
+    sale.fulfillment = target
+    return True
+
+
+def set_fulfillment(db: Session, sale: Sale, target: str) -> None:
+    """Setzt den Abwicklungsstatus manuell (auch rückwärts möglich).
+
+    Beim Wechsel auf/von 'Storniert' wird der Bestand entsprechend
+    zurückgebucht bzw. wieder ausgebucht.
+    """
+    if target == sale.fulfillment:
+        return
+    war_storniert = sale.is_cancelled
+
+    if target == FULFILLMENT_CANCELLED and not war_storniert:
+        rebook_stock(db, sale)                 # Ware kommt zurück in den Bestand
+    elif war_storniert and target != FULFILLMENT_CANCELLED:
+        # Storno rückgängig -> Ware wieder ausbuchen
+        article = sale.article
+        if article:
+            article.quantity = max(0, article.quantity - sale.quantity)
+            _sync_stock_status(article)
+
+    _stamp_fulfillment(sale, target)
+    sale.fulfillment = target
+
+
+def _stamp_fulfillment(sale: Sale, target: str) -> None:
+    """Setzt passende Zeitstempel/Datenfelder zum neuen Status."""
+    now = _now_utc()
+    if target == "Bezahlt" and sale.paid_at is None:
+        sale.paid_at = now
+    elif target == "Versendet" and sale.shipped_at is None:
+        sale.shipped_at = now
+    elif target == "Zugestellt" and sale.tracking_delivered_at is None:
+        sale.tracking_delivered_at = now
+    elif target == FULFILLMENT_CANCELLED:
+        sale.cancelled_at = now
 
 
 def _get_sale(db: Session, sale_id: int) -> Sale:

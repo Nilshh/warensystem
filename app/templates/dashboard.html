@@ -1,8 +1,30 @@
 {% extends "base.html" %}
+{% import "_fulfillment.html" as f %}
 {% block title %}Dashboard · Warenwirtschaft{% endblock %}
 {% block content %}
+{% if request.query_params.get('msg') %}<div class="banner success">✔ {{ request.query_params.get('msg') }}</div>{% endif %}
 {% if restored %}<div class="banner success">✔ Backup erfolgreich eingespielt.</div>{% endif %}
 {% if error %}<div class="banner error">⚠ Wiederherstellung fehlgeschlagen: {{ error }}</div>{% endif %}
+
+{% if zu_versenden %}
+<section class="card task-card">
+  <h2>✅ Zu erledigen ({{ zu_versenden|length }})</h2>
+  <p class="muted">Verkäufe, die noch versendet werden müssen.</p>
+  <ul class="task-list">
+    {% for s in zu_versenden %}
+    <li>
+      <a class="task-item" href="/sales/{{ s.id }}/edit">
+        {% if s.article %}<span class="mono">{{ s.article.article_no }}</span> {{ s.article.title }}
+        {% else %}Verkauf LS-{{ '%05d' % s.id }}{% endif %}
+      </a>
+      <span class="muted">{{ s.buyer_name or '' }} · {{ s.sold_at | date }}</span>
+      {{ f.badge(s.fulfillment) }}
+      {{ f.actions(s, '/') }}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
 
 {% if haengend %}
 <section class="card stuck-card">
