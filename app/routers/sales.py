@@ -90,6 +90,7 @@ def sale_edit_form(sale_id: int, request: Request, db: Session = Depends(get_db)
             "max_qty": sale.quantity + (sale.article.quantity if sale.article else 0),
             "fulfillment_steps": FULFILLMENT_STEPS,
             "fulfillment_cancelled": FULFILLMENT_CANCELLED,
+            "tracking_hours": config.TRACKING_INTERVAL_HOURS,
         },
     )
 
@@ -119,7 +120,8 @@ async def sale_edit(sale_id: int, request: Request, db: Session = Depends(get_db
     sale.buyer_name = (form.get("buyer_name") or "").strip()
     sale.buyer_address = (form.get("buyer_address") or "").strip()
     sale.payment_method = (form.get("payment_method") or "").strip()
-    sale.tracking_carrier = (form.get("tracking_carrier") or "").strip()
+    # tracking_carrier wird nicht mehr erfasst (ergibt sich aus der Versandart);
+    # vorhandene Werte aus Bestandsdaten bleiben unangetastet.
     sale.tracking_number = (form.get("tracking_number") or "").strip()
     sale.note = (form.get("note") or "").strip()
     sale.order_date = parse_date(form.get("order_date"))

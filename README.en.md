@@ -238,9 +238,19 @@ remains manual.
    Secret*. The tracking API needs no secret.)
 3. `docker compose up -d`
 
-Open shipments are then polled **twice a day** — only sales with a tracking
-number, and only until “delivered”. Shipments in transit longer than
-`TRACKING_STUCK_DAYS` are flagged on the dashboard.
+Open shipments are then polled **twice a day** (plus once shortly after start).
+A sale is only polled if:
+
+- a **tracking number** is set,
+- the **shipping method** (or the legacy carrier field) contains **DHL**,
+- the shipment is **not yet delivered** and not cancelled,
+- the sale is **not older than `TRACKING_MAX_DAYS`** (60 days).
+
+**Trigger manually:** Dashboard → *Werkzeuge* → “🚚 Sendungen jetzt prüfen”
+(all open ones) or inside a sale → “🚚 Sendungsstatus jetzt prüfen” (single).
+Errors are shown directly in the UI.
+
+Shipments in transit longer than `TRACKING_STUCK_DAYS` are flagged on the dashboard.
 
 **Hermes** has no public tracking API for private customers and stays manual.
 Additional carriers can be added in [`app/carriers.py`](app/carriers.py).

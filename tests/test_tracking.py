@@ -128,7 +128,7 @@ def test_zugestellte_sendung_wird_gespeichert(dhl, db):
     s = _verkauf(db, tracking_carrier="DHL", tracking_number="00340001")
     dhl["body"] = _dhl_antwort("delivered")
 
-    assert maintenance.update_tracking() == 1
+    assert maintenance.update_tracking().updated == 1
     db.refresh(s)
     assert s.tracking_status == carriers.ZUGESTELLT
     assert s.is_delivered is True
@@ -139,19 +139,19 @@ def test_zugestellte_sendung_wird_gespeichert(dhl, db):
 def test_zugestellte_sendung_wird_nicht_erneut_abgefragt(dhl, db):
     s = _verkauf(db, tracking_carrier="DHL", tracking_number="00340001",
                  tracking_status=carriers.ZUGESTELLT)
-    assert maintenance.update_tracking() == 0
+    assert maintenance.update_tracking().updated == 0
     assert dhl["requests"] == []          # gar keine Abfrage
 
 
 def test_ohne_sendungsnummer_keine_abfrage(dhl, db):
     _verkauf(db, tracking_carrier="DHL", tracking_number="")
-    assert maintenance.update_tracking() == 0
+    assert maintenance.update_tracking().updated == 0
     assert dhl["requests"] == []
 
 
 def test_hermes_wird_uebersprungen(dhl, db):
     _verkauf(db, tracking_carrier="Hermes", tracking_number="H123")
-    assert maintenance.update_tracking() == 0
+    assert maintenance.update_tracking().updated == 0
     assert dhl["requests"] == []          # kein Anbieter -> keine Abfrage
 
 
@@ -159,7 +159,7 @@ def test_sehr_alte_sendung_wird_nicht_mehr_abgefragt(dhl, db, monkeypatch):
     monkeypatch.setattr(config, "TRACKING_MAX_DAYS", 60)
     _verkauf(db, tracking_carrier="DHL", tracking_number="00340001",
              sold_at=datetime.now(timezone.utc) - timedelta(days=90))
-    assert maintenance.update_tracking() == 0
+    assert maintenance.update_tracking().updated == 0
     assert dhl["requests"] == []
 
 
@@ -177,14 +177,14 @@ def test_fehler_bei_einer_sendung_stoppt_die_anderen_nicht(dhl, db, monkeypatch)
         return original(carrier, number)
 
     monkeypatch.setattr(carriers, "track", flaky)
-    assert maintenance.update_tracking() == 1      # A2 wurde trotzdem aktualisiert
+    assert maintenance.update_tracking().updated == 1      # A2 wurde trotzdem aktualisiert
     assert aufrufe["n"] == 2
 
 
 def test_ohne_key_laeuft_die_abfrage_gar_nicht(db, monkeypatch):
     monkeypatch.setattr(config, "DHL_API_KEY", "")
     _verkauf(db, tracking_carrier="DHL", tracking_number="00340001")
-    assert maintenance.update_tracking() == 0
+    assert maintenance.update_tracking().updated == 0
 
 
 # --- Dashboard-Hinweis ------------------------------------------------------
@@ -203,6 +203,67 @@ def test_dashboard_meldet_frische_sendung_nicht(dhl, db, client):
              tracking_status=carriers.UNTERWEGS,
              sold_at=datetime.now(timezone.utc) - timedelta(days=1))
     assert "Sendungen unterwegs seit über" not in client.get("/").text
+
+
+# --- Manueller Anstoß -------------------------------------------------------
+def test_manueller_lauf_aktualisiert(dhl, db, client):
+    s = _verkauf(db, tracking_carrier="DHL", tracking_number="00340001")
+    dhl["body"] = _dhl_antwort("delivered")
+
+    r = client.post("/tracking/refresh", data={"back": "/"}, follow_redirects=False)
+    assert "msg=" in r.headers["location"]
+    db.refresh(s)
+    assert s.tracking_status == carriers.ZUGESTELLT
+
+
+def test_manueller_lauf_meldet_fehler_in_der_oberflaeche(dhl, db, client):
+    """Bei einem API-Fehler soll die Meldung sichtbar sein, nicht nur im Log."""
+    _verkauf(db, tracking_carrier="DHL", tracking_number="00340001")
+    dhl["fehler"] = urllib.error.HTTPError("u", 401, "Unauthorized", {}, None)
+
+    r = client.post("/tracking/refresh", data={"back": "/"}, follow_redirects=False)
+    assert "error=" in r.headers["location"]
+
+
+def test_manueller_lauf_ohne_offene_sendungen(dhl, db, client):
+    r = client.post("/tracking/refresh", data={"back": "/"}, follow_redirects=False)
+    assert "Keine%20offenen" in r.headers["location"]
+
+
+def test_einzelne_sendung_manuell_pruefen(dhl, db, client):
+    s = _verkauf(db, shipping_method="DHL Paket 2 kg", tracking_number="00340001")
+    dhl["body"] = _dhl_antwort("delivered")
+
+    r = client.post(f"/sales/{s.id}/tracking-refresh", data={}, follow_redirects=False)
+    assert "msg=" in r.headers["location"]
+    db.refresh(s)
+    assert s.tracking_status == carriers.ZUGESTELLT
+
+
+def test_einzelpruefung_meldet_nicht_unterstuetzten_anbieter(dhl, db, client):
+    s = _verkauf(db, shipping_method="Hermes", tracking_number="H123")
+    r = client.post(f"/sales/{s.id}/tracking-refresh", data={}, follow_redirects=False)
+    assert "nicht" in r.headers["location"]      # Hinweis statt stiller Wirkungslosigkeit
+    assert dhl["requests"] == []
+
+
+def test_stornierte_sendung_wird_nicht_abgefragt(dhl, db):
+    from app.models import FULFILLMENT_CANCELLED
+    _verkauf(db, tracking_carrier="DHL", tracking_number="00340001",
+             fulfillment=FULFILLMENT_CANCELLED)
+    assert maintenance.update_tracking().checked == 0
+    assert dhl["requests"] == []
+
+
+def test_versandart_allein_reicht_als_anbieter(dhl, db):
+    """Ohne Dienstleister-Feld: die Versandart verrät den Anbieter."""
+    s = _verkauf(db, shipping_method="DHL Päckchen S (2 kg, 35×25×10)",
+                 tracking_number="00340001")
+    dhl["body"] = _dhl_antwort("transit", "In Zustellung")
+    assert maintenance.update_tracking().updated == 1
+    db.refresh(s)
+    assert s.tracking_status == carriers.UNTERWEGS
+    assert s.carrier_label.startswith("DHL")
 
 
 def test_sendungsdaten_bleiben_sichtbar(db, client):

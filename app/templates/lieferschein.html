@@ -110,7 +110,7 @@
       <div class="row"><span class="label">Versandart:</span><span>{{ sale.shipping_method }}</span></div>
       {% endif %}
       {% if sale.tracking_number %}
-      <div class="row"><span class="label">Sendungsnummer:</span><span>{{ sale.tracking_carrier }} {{ sale.tracking_number }}</span></div>
+      <div class="row"><span class="label">Sendungsnummer:</span><span>{{ sale.carrier_label }} {{ sale.tracking_number }}</span></div>
       {% endif %}
     </div>
 

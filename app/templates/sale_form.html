@@ -131,9 +131,6 @@
         <input type="date" name="shipped_at"
                value="{{ sale.shipped_at.strftime('%Y-%m-%d') if sale.shipped_at else '' }}">
       </label>
-      <label>Versanddienstleister
-        <input type="text" name="tracking_carrier" value="{{ sale.tracking_carrier }}">
-      </label>
       <label>Trackingnummer
         <input type="text" name="tracking_number" value="{{ sale.tracking_number }}">
         {% if sale.tracking_status %}
@@ -145,6 +142,15 @@
         {% endif %}
       </label>
     </div>
+    {% if sale.tracking_number %}
+    <p class="hint">
+      <button type="submit" class="btn btn-sm"
+              formaction="/sales/{{ sale.id }}/tracking-refresh" formmethod="post" formnovalidate>
+        🚚 Sendungsstatus jetzt prüfen
+      </button>
+      <span class="muted">Automatisch alle {{ tracking_hours }} Stunden, bis zugestellt. Nur DHL.</span>
+    </p>
+    {% endif %}
     <label>Notizen
       <textarea name="note" rows="2">{{ sale.note }}</textarea>
     </label>

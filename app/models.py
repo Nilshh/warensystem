@@ -208,6 +208,15 @@ class Sale(Base):
         return self.tracking_status == "zugestellt"
 
     @property
+    def carrier_label(self) -> str:
+        """Versanddienstleister für die Anzeige.
+
+        Ergibt sich normalerweise aus der Versandart ("DHL Paket 2 kg"); das
+        alte Feld `tracking_carrier` wird nur noch für Bestandsdaten genutzt.
+        """
+        return self.tracking_carrier or self.shipping_method
+
+    @property
     def is_cancelled(self) -> bool:
         return self.fulfillment == FULFILLMENT_CANCELLED
 

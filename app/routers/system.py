@@ -4,13 +4,14 @@ import io
 import urllib.parse
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, UploadFile, File
+from fastapi import APIRouter, Depends, Request, UploadFile, File
 from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from .. import backup, ebay
+from .. import backup, carriers, ebay
 from ..database import engine, get_db
+from ..maintenance import refresh_sale_tracking, update_tracking
 from ..migrations import run_migrations
 from ..models import Article, Sale
 
@@ -84,7 +85,7 @@ def export_sales_csv(year: int | None = None, db: Session = Depends(get_db)):
             s.shipping_method, f"{s.shipping_cost:.2f}", s.shipping_payer,
             f"{s.profit:.2f}", f"{s.margin:.1f}" if s.margin is not None else "",
             s.sale_platform, s.buyer_name, s.payment_method,
-            s.tracking_carrier, s.tracking_number, s.note,
+            s.carrier_label, s.tracking_number, s.note,
             s.order_date.strftime("%d.%m.%Y") if s.order_date else "",
             s.shipped_at.strftime("%d.%m.%Y") if s.shipped_at else "",
         ])
@@ -106,6 +107,40 @@ def export_sales_csv(year: int | None = None, db: Session = Depends(get_db)):
 def ebay_sync(db: Session = Depends(get_db)):
     # Bewusst noch nicht aktiv — siehe app/ebay.py
     return RedirectResponse("/", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# Sendungsverfolgung manuell anstoßen
+# ---------------------------------------------------------------------------
+def _back_with(back: str, key: str, text: str) -> str:
+    sep = "&" if "?" in back else "?"
+    return f"{back}{sep}{key}={urllib.parse.quote(text)}"
+
+
+@router.post("/tracking/refresh")
+async def tracking_refresh(request: Request):
+    """Prüft sofort alle offenen DHL-Sendungen."""
+    form = await request.form()
+    back = form.get("back") or "/"
+    run = update_tracking()
+
+    if run.errors:
+        return RedirectResponse(_back_with(back, "error", " ".join(run.errors[:2])),
+                                status_code=303)
+    if run.checked == 0:
+        note = "Keine offenen DHL-Sendungen zum Prüfen."
+    else:
+        note = f"Geprüft: {run.updated} von {run.checked} Sendungen aktualisiert."
+    return RedirectResponse(_back_with(back, "msg", note), status_code=303)
+
+
+@router.post("/sales/{sale_id}/tracking-refresh")
+async def sale_tracking_refresh(sale_id: int, request: Request):
+    """Prüft sofort den Status einer einzelnen Sendung."""
+    form = await request.form()
+    back = form.get("back") or f"/sales/{sale_id}/edit"
+    note = refresh_sale_tracking(sale_id) or "Sendungsstatus geprüft."
+    return RedirectResponse(_back_with(back, "msg", note), status_code=303)
 
 
 # ---------------------------------------------------------------------------

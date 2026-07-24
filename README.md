@@ -240,9 +240,19 @@ inaktiv. **Kleinanzeigen** hat keine offizielle API und bleibt manuell.
    Secret*. Die Tracking-API braucht kein Secret.)
 3. `docker compose up -d`
 
-Danach wird der Status offener Sendungen **2× täglich** automatisch abgefragt —
-nur für Verkäufe mit Sendungsnummer, und nur bis „zugestellt". Sendungen, die
-länger als `TRACKING_STUCK_DAYS` unterwegs sind, meldet das Dashboard.
+Danach wird der Status offener Sendungen **2× täglich** automatisch abgefragt
+(zusätzlich einmal kurz nach dem Start). Abgefragt wird nur, wenn:
+
+- eine **Sendungsnummer** hinterlegt ist,
+- die **Versandart** (oder das Alt-Feld Dienstleister) **DHL** enthält,
+- die Sendung **noch nicht zugestellt** und nicht storniert ist,
+- der Verkauf **nicht älter als `TRACKING_MAX_DAYS`** (60 Tage) ist.
+
+**Manuell anstoßen:** Dashboard → *Werkzeuge* → „🚚 Sendungen jetzt prüfen"
+(alle offenen) oder im Verkauf → „🚚 Sendungsstatus jetzt prüfen" (einzeln).
+Fehler werden dabei direkt in der Oberfläche angezeigt.
+
+Sendungen, die länger als `TRACKING_STUCK_DAYS` unterwegs sind, meldet das Dashboard.
 
 **Hermes** hat keine öffentliche Tracking-API für Privatkunden und bleibt
 manuell. Weitere Anbieter lassen sich in [`app/carriers.py`](app/carriers.py)

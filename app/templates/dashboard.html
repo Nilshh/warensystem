@@ -37,7 +37,7 @@
         {% if h.sale.article %}<span class="mono">{{ h.sale.article.article_no }}</span> {{ h.sale.article.title }}
         {% else %}Verkauf LS-{{ '%05d' % h.sale.id }}{% endif %}
       </a>
-      <span class="muted">{{ h.sale.tracking_carrier or h.sale.shipping_method }} ·
+      <span class="muted">{{ h.sale.carrier_label }} ·
         <span class="mono">{{ h.sale.tracking_number }}</span>
         {% if h.sale.tracking_status_text %}· {{ h.sale.tracking_status_text }}{% endif %}
       </span>
@@ -158,6 +158,14 @@
     <a class="btn" href="/export.csv">⬇ Bestandsliste (CSV)</a>
     <a class="btn" href="/export-sales.csv">⬇ Verkäufe gesamt (CSV)</a>
     <a class="btn" href="/export-sales.csv?year={{ year }}">⬇ Verkäufe {{ year }} (CSV)</a>
+    {% if tracking_configured %}
+      <form method="post" action="/tracking/refresh" style="display:inline">
+        <input type="hidden" name="back" value="/">
+        <button class="btn" type="submit">🚚 Sendungen jetzt prüfen</button>
+      </form>
+    {% else %}
+      <span class="hint">Sendungsverfolgung inaktiv — <code>DHL_API_KEY</code> in der <code>.env</code> hinterlegen.</span>
+    {% endif %}
     {% if ebay_configured %}
       <form method="post" action="/ebay/sync" style="display:inline">
         <button class="btn" type="submit">🔄 eBay synchronisieren</button>

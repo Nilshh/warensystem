@@ -33,7 +33,7 @@ a:hover { text-decoration: underline; }
 .topbar nav { display: flex; gap: 1.25rem; align-items: center; }
 .topbar nav a { color: var(--text); font-weight: 500; }
 
-.container { max-width: 1280px; margin: 1.5rem auto; padding: 0 1.5rem; }
+.container { max-width: 1400px; margin: 1.5rem auto; padding: 0 1.5rem; }
 .footer { text-align: center; color: var(--muted); font-size: .85rem; padding: 2rem 0; }
 
 h1 { font-size: 1.6rem; margin: .2rem 0 1rem; }
@@ -96,9 +96,11 @@ table.sales .col-artikel { min-width: 220px; }
 .badge.fulfil-zugestellt { background: #e0f5e9; color: #12a150; }
 .badge.fulfil-abgeschlossen { background: #e0f5e9; color: #0e7a3a; }
 .badge.fulfil-storniert { background: #fbeaea; color: #b02a2a; }
-.col-status { white-space: nowrap; }
+/* Status-Spalte darf umbrechen — die lange Trackingnummer würde die Spalte
+   sonst extrem breit ziehen. */
+.col-status { white-space: normal; min-width: 140px; }
 .track-line { display: flex; align-items: center; gap: .3rem; flex-wrap: wrap; margin-top: .25rem; font-size: .78rem; }
-.track-line .track-no { font-size: .72rem; }
+.track-line .track-no { font-size: .7rem; word-break: break-all; }
 tr.row-cancelled td { opacity: .55; }
 tr.row-cancelled .col-artikel a { text-decoration: line-through; }
 .fulfil-actions { display: inline-flex; gap: .3rem; flex-wrap: wrap; }

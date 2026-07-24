@@ -3,13 +3,14 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
+from typing import NamedTuple
 
 from fastapi import FastAPI
 from sqlalchemy import inspect, select, text
 
 from . import backup, carriers, config, images
 from .database import SessionLocal, engine
-from .models import Article, ArticleImage, Sale, StorageLocation
+from .models import Article, ArticleImage, Sale, StorageLocation, FULFILLMENT_CANCELLED
 from . import services
 from .services import make_article_no
 
@@ -239,15 +240,44 @@ def optimize_existing_images() -> tuple[int, int]:
         db.close()
 
 
-def update_tracking() -> int:
+class TrackingRun(NamedTuple):
+    """Ergebnis eines Abfragelaufs."""
+    checked: int = 0            # tatsächlich beim Dienstleister angefragt
+    updated: int = 0            # davon mit neuem Status
+    skipped: int = 0            # übersprungen (kein unterstützter Anbieter o.ä.)
+    errors: list[str] = []      # aufgetretene Fehlermeldungen (ohne Dubletten)
+
+
+def _check_sale(sale: Sale) -> str | None:
+    """Fragt eine Sendung ab und überträgt das Ergebnis. Gibt Fehlertext zurück."""
+    carrier = carriers.detect(sale.tracking_carrier, sale.shipping_method)
+    if not carrier:
+        return None                       # z.B. Hermes — bleibt manuell
+    try:
+        res = carriers.track(carrier, sale.tracking_number)
+    except carriers.TrackingError as e:
+        log.warning("Sendungsverfolgung %s: %s", sale.tracking_number, e)
+        return str(e)
+
+    sale.tracking_status = res.status
+    sale.tracking_status_text = res.text
+    sale.tracking_checked_at = datetime.now(timezone.utc)
+    if res.status == carriers.ZUGESTELLT:
+        sale.tracking_delivered_at = res.delivered_at or datetime.now(timezone.utc)
+        services.advance_fulfillment(sale, "Zugestellt")   # Abwicklung mitziehen
+    return None
+
+
+def update_tracking() -> TrackingRun:
     """Fragt den Sendungsstatus offener Sendungen ab.
 
-    Nur Verkäufe mit Sendungsnummer, deren Dienstleister unterstützt wird und
-    die noch nicht zugestellt sind. Sehr alte Sendungen werden nicht mehr
-    abgefragt (schont das Abfragekontingent).
+    Nur Verkäufe mit Sendungsnummer, deren Dienstleister unterstützt wird, die
+    noch nicht zugestellt und nicht storniert sind. Sehr alte Sendungen werden
+    nicht mehr abgefragt (schont das Abfragekontingent).
     """
     if not carriers.is_configured():
-        return 0
+        return TrackingRun(errors=["Sendungsverfolgung ist nicht konfiguriert "
+                                   "(DHL_API_KEY fehlt)."])
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=config.TRACKING_MAX_DAYS)
     db = SessionLocal()
@@ -256,39 +286,58 @@ def update_tracking() -> int:
             select(Sale).where(
                 Sale.tracking_number != "",
                 Sale.tracking_status != carriers.ZUGESTELLT,
+                Sale.fulfillment != FULFILLMENT_CANCELLED,
             )
         ).all()
 
-        aktualisiert = 0
+        checked = updated = skipped = 0
+        errors: list[str] = []
         for s in offen:
             verkauft = s.sold_at
             if verkauft and verkauft.tzinfo is None:
                 verkauft = verkauft.replace(tzinfo=timezone.utc)
             if verkauft and verkauft < cutoff:
+                skipped += 1
                 continue                       # zu alt, nicht weiter verfolgen
+            if not carriers.detect(s.tracking_carrier, s.shipping_method):
+                skipped += 1
+                continue                       # kein unterstützter Anbieter
 
-            carrier = carriers.detect(s.tracking_carrier, s.shipping_method)
-            if not carrier:
-                continue                       # z.B. Hermes — bleibt manuell
+            checked += 1
+            fehler = _check_sale(s)
+            if fehler:
+                if fehler not in errors:
+                    errors.append(fehler)
+            else:
+                updated += 1
 
-            try:
-                res = carriers.track(carrier, s.tracking_number)
-            except carriers.TrackingError as e:
-                log.warning("Sendungsverfolgung %s: %s", s.tracking_number, e)
-                continue
-
-            s.tracking_status = res.status
-            s.tracking_status_text = res.text
-            s.tracking_checked_at = datetime.now(timezone.utc)
-            if res.status == carriers.ZUGESTELLT:
-                s.tracking_delivered_at = res.delivered_at or datetime.now(timezone.utc)
-                services.advance_fulfillment(s, "Zugestellt")   # Abwicklung mitziehen
-            aktualisiert += 1
-
-        if aktualisiert:
+        if updated:
             db.commit()
-            log.info("Sendungsverfolgung: %d Sendungen aktualisiert.", aktualisiert)
-        return aktualisiert
+            log.info("Sendungsverfolgung: %d Sendungen aktualisiert.", updated)
+        return TrackingRun(checked, updated, skipped, errors)
+    finally:
+        db.close()
+
+
+def refresh_sale_tracking(sale_id: int) -> str | None:
+    """Fragt eine einzelne Sendung sofort ab. Gibt einen Hinweistext zurück."""
+    if not carriers.is_configured():
+        return "Sendungsverfolgung ist nicht konfiguriert (DHL_API_KEY fehlt)."
+    db = SessionLocal()
+    try:
+        sale = db.get(Sale, sale_id)
+        if not sale:
+            return "Verkauf nicht gefunden."
+        if not sale.tracking_number:
+            return "Keine Sendungsnummer hinterlegt."
+        if not carriers.detect(sale.tracking_carrier, sale.shipping_method):
+            return (f"'{sale.tracking_carrier or sale.shipping_method or '—'}' wird nicht "
+                    "automatisch unterstützt (nur DHL).")
+        fehler = _check_sale(sale)
+        if fehler:
+            return fehler
+        db.commit()
+        return f"Sendungsstatus: {sale.tracking_status_text or sale.tracking_status}."
     finally:
         db.close()
 

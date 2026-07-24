@@ -387,7 +387,7 @@ async def sell_submit(article_id: int, request: Request, db: Session = Depends(g
         buyer_name=(form.get("buyer_name") or "").strip(),
         buyer_address=(form.get("buyer_address") or "").strip(),
         payment_method=(form.get("payment_method") or "").strip(),
-        tracking_carrier=(form.get("tracking_carrier") or "").strip(),
+        # Dienstleister ergibt sich aus der Versandart (siehe Sale.carrier_label)
         tracking_number=(form.get("tracking_number") or "").strip(),
         note=(form.get("note") or "").strip(),
         order_date=parse_date(form.get("order_date")),

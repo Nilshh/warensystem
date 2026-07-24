@@ -116,6 +116,7 @@ def dashboard(
         "error": error,
         "haengend": haengend,
         "stuck_days": config.TRACKING_STUCK_DAYS,
+        "tracking_configured": carriers.is_configured(),
         "zu_versenden": zu_versenden,
     }
     return templates.TemplateResponse("dashboard.html", ctx)
