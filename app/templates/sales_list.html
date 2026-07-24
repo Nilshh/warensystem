@@ -68,9 +68,7 @@
       <td class="col-plattform">{{ s.sale_platform or '–' }}</td>
       <td class="col-status">
         {{ f.badge(s.fulfillment) }}
-        {% if s.tracking_status and s.tracking_status != 'zugestellt' %}
-        <br><span class="muted" title="{{ s.tracking_status_text }}">📦 {{ s.tracking_status_text or 'unterwegs' }}</span>
-        {% endif %}
+        {{ f.tracking(s, show_method=False) }}
       </td>
       <td class="row-actions">
         <a class="btn btn-sm" href="/sales/{{ s.id }}/edit">Bearbeiten</a>

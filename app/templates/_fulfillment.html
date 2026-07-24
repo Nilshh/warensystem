@@ -4,6 +4,28 @@
 <span class="badge fulfil-{{ status | lower }}">{{ fulfillment_label(status) }}</span>
 {% endmacro %}
 
+{# Sendungsinfo: Dienstleister, Nummer und (falls vorhanden) DHL-Status #}
+{% macro tracking(sale, show_method=True) %}
+{% set labels = {'zugestellt':'✓ Zugestellt','unterwegs':'📦 Unterwegs',
+                 'problem':'⚠ Problem','unbekannt':'? Unbekannt'} %}
+{% if sale.tracking_number or sale.shipping_method %}
+<div class="track-line">
+  {% if show_method and sale.shipping_method %}
+  <span class="muted">{{ sale.shipping_method }}</span>
+  {% endif %}
+  {% if sale.tracking_status %}
+  <span class="badge sm track-{{ sale.tracking_status }}"
+        title="{{ sale.tracking_status_text }}{% if sale.tracking_checked_at %} (geprüft {{ sale.tracking_checked_at.strftime('%d.%m.%Y') }}){% endif %}">
+    {{ labels.get(sale.tracking_status, sale.tracking_status) }}
+  </span>
+  {% endif %}
+  {% if sale.tracking_number %}
+  <span class="muted mono track-no">{{ sale.tracking_carrier }} {{ sale.tracking_number }}</span>
+  {% endif %}
+</div>
+{% endif %}
+{% endmacro %}
+
 {# Aktionsknöpfe: nächster Schritt(e) + Stornieren. `back` ist die Ziel-URL. #}
 {% macro actions(sale, back='/sales') %}
 <span class="fulfil-actions">

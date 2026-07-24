@@ -97,6 +97,8 @@ table.sales .col-artikel { min-width: 220px; }
 .badge.fulfil-abgeschlossen { background: #e0f5e9; color: #0e7a3a; }
 .badge.fulfil-storniert { background: #fbeaea; color: #b02a2a; }
 .col-status { white-space: nowrap; }
+.track-line { display: flex; align-items: center; gap: .3rem; flex-wrap: wrap; margin-top: .25rem; font-size: .78rem; }
+.track-line .track-no { font-size: .72rem; }
 tr.row-cancelled td { opacity: .55; }
 tr.row-cancelled .col-artikel a { text-decoration: line-through; }
 .fulfil-actions { display: inline-flex; gap: .3rem; flex-wrap: wrap; }

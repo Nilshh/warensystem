@@ -144,7 +144,7 @@
       <tr>
         <th>Verkauft am</th><th class="num">Stück</th><th class="num">Erlös</th>
         <th class="num">Gebühren</th><th class="num">Gewinn</th>
-        <th>Käufer</th><th>Status</th><th></th>
+        <th>Käufer</th><th>Versand</th><th>Status</th><th></th>
       </tr>
     </thead>
     <tbody>
@@ -156,6 +156,7 @@
         <td class="num">{{ s.fees | eur }}</td>
         <td class="num {{ 'positive' if s.profit >= 0 else 'negative' }}">{{ s.profit | eur }}</td>
         <td>{{ s.buyer_name or '–' }}</td>
+        <td>{% if s.shipping_method or s.tracking_number %}{{ f.tracking(s) }}{% else %}<span class="muted">–</span>{% endif %}</td>
         <td>{{ f.badge(s.fulfillment) }}</td>
         <td class="row-actions">
           <a class="btn btn-sm" href="/sales/{{ s.id }}/edit">Bearbeiten</a>

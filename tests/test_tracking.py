@@ -205,6 +205,19 @@ def test_dashboard_meldet_frische_sendung_nicht(dhl, db, client):
     assert "Sendungen unterwegs seit über" not in client.get("/").text
 
 
+def test_sendungsdaten_bleiben_sichtbar(db, client):
+    """Trackingnummer und DHL-Status müssen in Liste und Historie stehen."""
+    s = _verkauf(db, tracking_carrier="DHL", tracking_number="00340434292135100186",
+                 shipping_method="DHL Paket 2 kg", tracking_status="unterwegs",
+                 tracking_status_text="In Zustellung")
+    for seite in ("/sales", f"/articles/{s.article_id}"):
+        html = client.get(seite).text
+        assert "00340434292135100186" in html, f"Trackingnummer fehlt in {seite}"
+        assert "Unterwegs" in html, f"DHL-Status fehlt in {seite}"
+    # Versandart gehört in die Artikel-Historie
+    assert "DHL Paket 2 kg" in client.get(f"/articles/{s.article_id}").text
+
+
 def test_dashboard_meldet_zugestellte_nicht(dhl, db, client):
     _verkauf(db, tracking_carrier="DHL", tracking_number="00340001",
              tracking_status=carriers.ZUGESTELLT,
