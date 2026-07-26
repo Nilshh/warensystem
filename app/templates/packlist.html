@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% import "_fulfillment.html" as f %}
+{% block title %}Packliste · Warenwirtschaft{% endblock %}
+{% block content %}
+{% if msg %}<div class="banner success no-print">✔ {{ msg }}</div>{% endif %}
+{% if error %}<div class="banner error no-print">⚠ {{ error }}</div>{% endif %}
+
+<div class="page-head">
+  <h1>Packliste</h1>
+  <div class="actions no-print">
+    <a class="btn btn-ghost" href="/sales">← Verkäufe</a>
+    <button class="btn" type="button" onclick="window.print()">🖨 Drucken</button>
+    {% if gruppen %}
+    <button class="btn btn-primary" type="submit" form="pack-form">✅ Ausgewählte als versendet</button>
+    {% endif %}
+  </div>
+</div>
+
+<p class="muted print-date">{{ gesamt }} offene Position{{ 'en' if gesamt != 1 else '' }} zum Packen · Stand {{ now_date }}</p>
+
+{% if gruppen %}
+<form method="post" action="/packlist/ship" id="pack-form">
+  {% for g in gruppen %}
+  <section class="card pack-group">
+    <div class="pack-group-head">
+      <label class="check pack-all">
+        <input type="checkbox" class="group-all no-print"> <strong>{{ g.buyer }}</strong>
+      </label>
+      <span class="muted">{{ g.sales|length }} Position{{ 'en' if g.sales|length != 1 else '' }}</span>
+    </div>
+    <div class="table-wrap">
+    <table class="data cardable packtable">
+      <thead>
+        <tr>
+          <th class="check-cell"></th>
+          <th>Nr.</th><th>Artikel</th><th class="num">Menge</th>
+          <th>Lagerplatz</th><th class="hide-m">Versand</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in g.sales %}
+        <tr>
+          <td class="check-cell">
+            <input type="checkbox" class="rowcheck" name="ids" value="{{ s.id }}">
+          </td>
+          <td class="mono artno-cell" data-label="Nr.">
+            {{ s.article.article_no if s.article else '–' }}
+          </td>
+          <td class="title-cell" data-label="Artikel">
+            {% if s.article %}<strong>{{ s.article.title }}</strong>{% else %}<span class="muted">– gelöscht –</span>{% endif %}
+          </td>
+          <td class="num" data-label="Menge">{{ s.quantity }}</td>
+          <td data-label="Lagerplatz">
+            {% if s.article and s.article.storage_location %}
+            <strong>📍 {{ s.article.storage_location }}</strong>
+            {% else %}<span class="muted">–</span>{% endif %}
+          </td>
+          <td class="hide-m" data-label="Versand">{{ s.shipping_method or '–' }}</td>
+          <td data-label="Status">{{ f.badge(s.fulfillment) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </section>
+  {% endfor %}
+
+  <div class="actions no-print" style="margin-top:1rem">
+    <button class="btn btn-primary" type="submit">✅ Ausgewählte als versendet markieren</button>
+  </div>
+</form>
+
+<script>
+  (function () {
+    // "Alle eines Käufers" hakt die Zeilen der Gruppe an
+    document.querySelectorAll('.group-all').forEach(function (box) {
+      box.addEventListener('change', function () {
+        box.closest('.pack-group').querySelectorAll('.rowcheck')
+           .forEach(function (c) { c.checked = box.checked; });
+      });
+    });
+    document.getElementById('pack-form').addEventListener('submit', function (e) {
+      if (document.querySelectorAll('.rowcheck:checked').length === 0) {
+        alert('Bitte zuerst Bestellungen anhaken.');
+        e.preventDefault();
+      }
+    });
+  })();
+</script>
+{% else %}
+<div class="empty"><p>Keine offenen Bestellungen — alles versendet. 🎉</p></div>
+{% endif %}
+{% endblock %}

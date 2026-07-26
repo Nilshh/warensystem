@@ -59,6 +59,60 @@ def sales_list(
     )
 
 
+@router.get("/packlist", response_class=HTMLResponse)
+def packlist(request: Request, msg: str = "", error: str = "",
+             db: Session = Depends(get_db)):
+    """Packliste aller offenen Bestellungen, nach Käufer gruppiert.
+
+    Offen = noch nicht versendet (Status Verkauft oder Bezahlt).
+    Innerhalb eines Käufers nach Lagerplatz sortiert (zum Zusammensuchen).
+    """
+    sales = db.scalars(
+        select(Sale).options(joinedload(Sale.article))
+        .where(Sale.fulfillment.in_(("Verkauft", "Bezahlt")))
+    ).all()
+
+    def sortkey(s):
+        buyer = (s.buyer_name or "￿").lower()      # ohne Käufer ans Ende
+        lager = s.article.storage_location if s.article else ""
+        return (buyer, lager, s.sold_at or datetime.now(timezone.utc))
+
+    gruppen: list[dict] = []
+    aktuell = None
+    for s in sorted(sales, key=sortkey):
+        name = s.buyer_name or "ohne Käufer"
+        if aktuell is None or aktuell["buyer"] != name:
+            aktuell = {"buyer": name, "sales": []}
+            gruppen.append(aktuell)
+        aktuell["sales"].append(s)
+
+    return templates.TemplateResponse(
+        "packlist.html",
+        {"request": request, "gruppen": gruppen, "gesamt": len(sales),
+         "now_date": datetime.now(timezone.utc).strftime("%d.%m.%Y"),
+         "msg": msg, "error": error},
+    )
+
+
+@router.post("/packlist/ship")
+async def packlist_ship(request: Request, db: Session = Depends(get_db)):
+    """Markiert die ausgewählten Bestellungen gesammelt als versendet."""
+    form = await request.form()
+    ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()]
+    n = 0
+    if ids:
+        for s in db.scalars(select(Sale).where(Sale.id.in_(ids))).all():
+            if s.fulfillment in ("Verkauft", "Bezahlt"):
+                set_fulfillment(db, s, "Versendet")
+                n += 1
+        db.commit()
+    note = urllib.parse.quote(
+        f"{n} Bestellung{'en' if n != 1 else ''} als versendet markiert."
+        if n else "Keine Bestellungen ausgewählt."
+    )
+    return RedirectResponse(f"/packlist?msg={note}", status_code=303)
+
+
 @router.post("/sales/{sale_id}/fulfillment")
 async def sale_set_fulfillment(sale_id: int, request: Request, db: Session = Depends(get_db)):
     """Setzt den Abwicklungsstatus eines Verkaufs (Aktionsknöpfe)."""

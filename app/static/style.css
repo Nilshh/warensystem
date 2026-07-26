@@ -124,6 +124,30 @@ tr.row-cancelled .col-artikel a { text-decoration: line-through; }
 .task-list .task-item { flex: 1; min-width: 200px; }
 .task-list .fulfil-actions { margin-left: auto; }
 
+/* Packliste */
+.pack-group { margin-bottom: 1rem; }
+.pack-group-head { display: flex; align-items: center; justify-content: space-between;
+  gap: .5rem; margin-bottom: .5rem; }
+.pack-all { font-size: 1rem; }
+.packtable .check-cell { width: 34px; }
+.packtable .check-cell input { width: 18px; height: 18px; }
+.print-date { margin-top: -.5rem; }
+
+@media print {
+  .topbar, .footer, .no-print, .page-head .actions { display: none !important; }
+  body { background: #fff; }
+  .container { max-width: none; margin: 0; padding: 0; }
+  .card { box-shadow: none; border: none; padding: 0; margin-bottom: .6rem; }
+  .pack-group { break-inside: avoid; }
+  .packtable .check-cell::before {
+    content: ""; display: inline-block; width: 14px; height: 14px;
+    border: 1.5px solid #333; border-radius: 3px;
+  }
+  .packtable .check-cell input { display: none; }   /* auf Papier ein leeres Kästchen */
+  table.data th { color: #000; }
+  h1 { font-size: 1.3rem; }
+}
+
 /* Sendungsverfolgung */
 .badge.track-zugestellt { background: #e0f5e9; color: #12a150; }
 .badge.track-unterwegs { background: #e2edff; color: #2b6cff; }

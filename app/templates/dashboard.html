@@ -8,7 +8,10 @@
 
 {% if zu_versenden %}
 <section class="card task-card">
-  <h2>✅ Zu erledigen ({{ zu_versenden|length }})</h2>
+  <div class="chart-head">
+    <h2>✅ Zu erledigen ({{ zu_versenden|length }})</h2>
+    <a class="btn btn-sm" href="/packlist">📋 Packliste</a>
+  </div>
   <p class="muted">Verkäufe, die noch versendet werden müssen.</p>
   <ul class="task-list">
     {% for s in zu_versenden %}

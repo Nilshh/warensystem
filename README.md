@@ -55,6 +55,9 @@ LXC-Container im Proxmox-Cluster. Bedienung komplett über die **Web-UI**.
   → Abgeschlossen, plus **Storniert/Retoure** (bucht Bestand zurück)
 - **Automatik**: Versanddatum → *Versendet*, DHL-Zustellung → *Zugestellt*,
   nach Frist automatisch *Abgeschlossen*
+- **Packliste** für mehrere Bestellungen: alle offenen Verkäufe nach Käufer
+  gruppiert, mit Lagerplatz je Position; abhaken und gesammelt als „Versendet"
+  markieren (druckbar)
 - **Lieferschein/Packzettel** je Verkauf (druckoptimiert)
 - **Sendungsverfolgung (DHL)**: 2× täglich automatisch, Stopp bei Zustellung
 
