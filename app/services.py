@@ -4,6 +4,8 @@ import uuid
 import urllib.parse
 from datetime import datetime, timezone
 
+import qrcode
+import qrcode.image.svg
 from fastapi import Request, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
