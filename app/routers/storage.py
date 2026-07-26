@@ -122,13 +122,8 @@ def storage_delete(loc_id: int, db: Session = Depends(get_db)):
     return RedirectResponse("/storage", status_code=303)
 
 
-@router.get("/storage/location", response_class=HTMLResponse)
-def storage_location(
-    request: Request, area: str = "", shelf: str = "", bin: str = "",
-    db: Session = Depends(get_db),
-):
-    """Inhalt eines bestimmten Lagerorts (Ziel der Lager-QR-Codes)."""
-    articles = db.scalars(
+def _location_articles(db: Session, area: str, shelf: str, bin: str):
+    return db.scalars(
         select(Article)
         .options(selectinload(Article.images))   # Vorschaubilder je Zeile
         .where(
@@ -137,15 +132,81 @@ def storage_location(
             Article.storage_bin == bin,
         ).order_by(Article.article_no)
     ).all()
+
+
+@router.get("/storage/location", response_class=HTMLResponse)
+def storage_location(
+    request: Request, area: str = "", shelf: str = "", bin: str = "",
+    msg: str = "", error: str = "",
+    db: Session = Depends(get_db),
+):
+    """Inhalt eines bestimmten Lagerorts (Ziel der Lager-QR-Codes)."""
+    articles = _location_articles(db, area, shelf, bin)
     label = format_storage(area, shelf, bin)
     return templates.TemplateResponse(
         "storage_location.html",
         {
             "request": request, "articles": articles, "label": label,
             "area": area, "shelf": shelf, "bin": bin,
+            "msg": msg, "error": error,
             "query": _storage_query(area, shelf, bin),
         },
     )
+
+
+@router.post("/storage/location/assign")
+async def storage_location_assign(
+    request: Request,
+    area: str = Form(""), shelf: str = Form(""), bin: str = Form(""),
+    article_no: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """Lagert einen Artikel per Artikelnummer auf diesen Lagerplatz ein.
+
+    Direkt am Regal nutzbar: Lager-QR scannen, Nummer eintippen, fertig —
+    auch zum Umlagern von einem anderen Platz. Mit htmx wird nur das
+    Listen-Fragment neu gerendert, ohne JavaScript die ganze Seite.
+    """
+    from ..services import make_article_no
+
+    needle = article_no.strip()
+    article = None
+    if needle:
+        article = db.scalar(
+            select(Article).where(func.lower(Article.article_no) == needle.lower())
+        )
+        if not article and needle.isdigit():
+            # Bequemlichkeit: "123" wird zu "WA-00123" (bzw. konfigurierter Präfix)
+            article = db.scalar(
+                select(Article).where(Article.article_no == make_article_no(int(needle)))
+            )
+
+    msg = error = ""
+    if not needle:
+        error = "Bitte eine Artikelnummer angeben."
+    elif not article:
+        error = f"Kein Artikel mit der Nummer „{needle}“ gefunden."
+    else:
+        vorher = article.storage_location
+        article.storage_area, article.storage_shelf, article.storage_bin = area, shelf, bin
+        db.commit()
+        msg = f"{article.article_no} {article.title} eingelagert."
+        if vorher and vorher != format_storage(area, shelf, bin):
+            msg = f"{article.article_no} {article.title} umgelagert (vorher: {vorher})."
+
+    if request.headers.get("HX-Request"):
+        return templates.TemplateResponse(
+            "partials/storage_articles.html",
+            {
+                "request": request,
+                "articles": _location_articles(db, area, shelf, bin),
+                "area": area, "shelf": shelf, "bin": bin,
+                "msg": msg, "error": error,
+            },
+        )
+    q = _storage_query(area, shelf, bin)
+    tail = f"&msg={urllib.parse.quote(msg)}" if msg else f"&error={urllib.parse.quote(error)}"
+    return RedirectResponse(f"/storage/location?{q}{tail}", status_code=303)
 
 
 @router.get("/storage/qr.svg")

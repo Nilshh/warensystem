@@ -77,6 +77,9 @@ def list_articles(
         "storage_locations": all_locations(db),
         "categories": all_categories(db),
     }
+    # Live-Suche: htmx tauscht nur die Ergebnisliste aus, nicht die ganze Seite.
+    if request.headers.get("HX-Request"):
+        return templates.TemplateResponse("partials/articles_results.html", ctx)
     return templates.TemplateResponse("articles.html", ctx)
 
 @router.post("/articles/bulk-status")

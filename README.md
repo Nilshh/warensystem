@@ -295,7 +295,7 @@ Die Tests laufen gegen eine temporäre Datenbank und fassen deine Daten nicht an
 ## Technik & Aufbau
 
 - **Backend**: FastAPI, SQLAlchemy, SQLite
-- **Frontend**: serverseitige Jinja2-Templates + etwas Vanilla-JS (kein Build-Schritt)
+- **Frontend**: serverseitige Jinja2-Templates + htmx (lokal gebündelt, kein Build-Schritt); responsive Karten-Ansicht auf dem Handy
 - **Bilder/QR**: Pillow, qrcode
 - **Container**: `python:3.12-slim`, Start via `uvicorn`
 

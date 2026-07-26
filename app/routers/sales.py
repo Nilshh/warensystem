@@ -69,6 +69,15 @@ async def sale_set_fulfillment(sale_id: int, request: Request, db: Session = Dep
     if target in FULFILLMENTS:
         set_fulfillment(db, sale, target)
         db.commit()
+    # htmx: nur das Abwicklungs-Element neu rendern — die Seite bleibt stehen.
+    if request.headers.get("HX-Request"):
+        return templates.TemplateResponse(
+            "partials/fulfillment_panel.html",
+            {
+                "request": request, "sale": sale, "back": back,
+                "show_tracking": form.get("show_tracking", "1") != "0",
+            },
+        )
     sep = "&" if "?" in back else "?"
     note = urllib.parse.quote(f"Status: {sale.fulfillment}.")
     return RedirectResponse(f"{back}{sep}msg={note}", status_code=303)

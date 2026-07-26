@@ -9,15 +9,26 @@
   </div>
 </div>
 
+{# Live-Suche: Tippen bzw. eine Filteränderung lädt per htmx nur die
+   Ergebnisliste neu. Ohne JavaScript bleibt der klassische "Filtern"-Knopf. #}
 <form class="filterbar" method="get" action="/articles">
-  <input type="text" name="q" value="{{ q }}" placeholder="Suche nach Titel oder Kategorie…">
-  <select name="status">
+  <input type="text" name="q" value="{{ q }}" placeholder="Suche nach Titel oder Kategorie…"
+         hx-get="/articles" hx-trigger="input changed delay:350ms, search"
+         hx-target="#articles-results" hx-swap="outerHTML"
+         hx-include="closest form" hx-push-url="true">
+  <select name="status"
+          hx-get="/articles" hx-trigger="change"
+          hx-target="#articles-results" hx-swap="outerHTML"
+          hx-include="closest form" hx-push-url="true">
     <option value="">Alle Status</option>
     {% for s in statuses %}
     <option value="{{ s }}" {{ 'selected' if s == active_status else '' }}>{{ s }}</option>
     {% endfor %}
   </select>
-  <select name="category">
+  <select name="category"
+          hx-get="/articles" hx-trigger="change"
+          hx-target="#articles-results" hx-swap="outerHTML"
+          hx-include="closest form" hx-push-url="true">
     <option value="">Alle Kategorien</option>
     {% for cat in categories %}
     <option value="{{ cat }}" {{ 'selected' if cat == active_category else '' }}>{{ cat }}</option>
@@ -26,7 +37,7 @@
   <input type="hidden" name="tag" value="{{ active_tag }}">
   <input type="hidden" name="sort" value="{{ sort }}">
   <input type="hidden" name="dir" value="{{ dir }}">
-  <button class="btn" type="submit">Filtern</button>
+  <button class="btn" type="submit" data-hide-js>Filtern</button>
   <a class="btn btn-ghost" href="/articles">Zurücksetzen</a>
 </form>
 
@@ -45,158 +56,5 @@
 <div class="banner success">✔ Kategorie von {{ categorized }} Artikel{{ 'n' if categorized != 1 else '' }} geändert.</div>
 {% endif %}
 
-{% set base = '/articles?q=' ~ q ~ '&status=' ~ active_status ~ '&tag=' ~ active_tag ~ '&category=' ~ (active_category|urlencode) %}
-{% macro sorthead(col, label, cls='') %}
-  {% set newdir = 'asc' if (sort == col and dir == 'desc') else 'desc' %}
-  <th class="{{ cls }} sortable">
-    <a href="{{ base }}&sort={{ col }}&dir={{ newdir }}">
-      {{ label }}{% if sort == col %} <span class="arrow">{{ '▲' if dir == 'asc' else '▼' }}</span>{% endif %}
-    </a>
-  </th>
-{% endmacro %}
-
-{% if articles %}
-<form method="post" action="/articles/bulk-status" id="bulk-form">
-  {# Filter/Sortierung für den Rücksprung erhalten #}
-  <input type="hidden" name="q" value="{{ q }}">
-  <input type="hidden" name="status" value="{{ active_status }}">
-  <input type="hidden" name="tag" value="{{ active_tag }}">
-  <input type="hidden" name="category" value="{{ active_category }}">
-  <input type="hidden" name="sort" value="{{ sort }}">
-  <input type="hidden" name="dir" value="{{ dir }}">
-
-  <div class="bulkbar">
-    <span class="bulk-count"><span id="sel-count">0</span> ausgewählt</span>
-    <label>Status:
-      <select name="new_status">
-        {% for s in statuses %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
-      </select>
-    </label>
-    <button class="btn btn-primary btn-sm" type="submit" formaction="/articles/bulk-status">Status setzen</button>
-    <span class="bulk-sep"></span>
-    <label>Lagerplatz:
-      <select name="storage_location_id">
-        <option value="">– kein –</option>
-        {% for loc in storage_locations %}<option value="{{ loc.id }}">{{ loc.label }}</option>{% endfor %}
-      </select>
-    </label>
-    <button class="btn btn-sm" type="submit" formaction="/articles/bulk-storage">Lagerplatz setzen</button>
-    <span class="bulk-sep"></span>
-    <label>Kategorie:
-      <input type="text" name="new_category" list="bulk-categories" placeholder="z.B. Handys">
-      <datalist id="bulk-categories">
-        {% for cat in categories %}<option value="{{ cat }}">{% endfor %}
-      </datalist>
-    </label>
-    <button class="btn btn-sm" type="submit" formaction="/articles/bulk-category">Kategorie setzen</button>
-    <span class="bulk-sep"></span>
-    <button class="btn btn-sm" type="submit" formaction="/articles/bulk-labels" formtarget="_blank">🏷 QR-Etiketten drucken</button>
-  </div>
-
-<div class="table-wrap">
-<table class="data">
-  <thead>
-    <tr>
-      <th class="check-cell"><input type="checkbox" id="select-all" title="Alle auswählen"></th>
-      {{ sorthead('article_no', 'Nr.') }}
-      <th>Bild</th>
-      {{ sorthead('title', 'Titel') }}
-      {{ sorthead('status', 'Status') }}
-      {{ sorthead('storage_area', 'Lager') }}
-      {{ sorthead('quantity', 'Bestand', 'num') }}
-      {{ sorthead('listing_price', 'Angebot', 'num') }}
-      <th class="num">Umsatz</th>
-      <th class="num">Gewinn</th>
-      <th>Plattformen</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for a in articles %}
-    <tr onclick="window.location='/articles/{{ a.id }}'">
-      <td class="check-cell" onclick="event.stopPropagation()">
-        <input type="checkbox" class="rowcheck" name="ids" value="{{ a.id }}">
-      </td>
-      <td class="mono artno-cell">{{ a.article_no }}</td>
-      <td class="thumb-cell">
-        {% if a.images %}
-          <img class="thumb" src="/uploads/{{ a.images[0].thumb }}" alt="" loading="lazy">
-        {% else %}
-          <span class="thumb placeholder">—</span>
-        {% endif %}
-      </td>
-      <td>
-        <strong>{{ a.title }}</strong>
-        {% if a.category %}<br>
-        <a class="muted" href="/articles?category={{ a.category|urlencode }}"
-           onclick="event.stopPropagation()">{{ a.category }}</a>
-        {% endif %}
-        {% if a.tag_list %}
-        <div class="row-tags">
-          {% for t in a.tag_list %}<span class="tag chip sm">{{ t }}</span>{% endfor %}
-        </div>
-        {% endif %}
-      </td>
-      <td><span class="badge status-{{ a.status | lower }}">{{ a.status }}</span></td>
-      <td class="muted">
-        {% if a.storage_location %}
-        <a href="/storage/location?area={{ a.storage_area|urlencode }}&shelf={{ a.storage_shelf|urlencode }}&bin={{ a.storage_bin|urlencode }}"
-           onclick="event.stopPropagation()">{{ a.storage_location }}</a>
-        {% else %}–{% endif %}
-      </td>
-      <td class="num">
-        <span class="badge {{ 'stock-ok' if a.in_stock else 'stock-out' }}">{{ a.quantity }}</span>
-      </td>
-      <td class="num">{{ a.listing_price | eur }}</td>
-      <td class="num">{{ (a.revenue | eur) if a.has_sales else '–' }}</td>
-      <td class="num {{ 'positive' if a.total_profit and a.total_profit >= 0 else ('negative' if a.total_profit and a.total_profit < 0 else '') }}">
-        {{ a.total_profit | eur if a.total_profit is not none else '–' }}
-      </td>
-      <td class="platforms">
-        {% if a.ebay_url %}<a href="{{ a.ebay_url }}" target="_blank" onclick="event.stopPropagation()" class="tag ebay">eBay</a>{% endif %}
-        {% if a.kleinanzeigen_url %}<a href="{{ a.kleinanzeigen_url }}" target="_blank" onclick="event.stopPropagation()" class="tag ka">Kleinanzeigen</a>{% endif %}
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-</div>
-</form>
-
-<script>
-  (function () {
-    var selectAll = document.getElementById('select-all');
-    var checks = Array.prototype.slice.call(document.querySelectorAll('.rowcheck'));
-    var counter = document.getElementById('sel-count');
-    function update() {
-      var n = document.querySelectorAll('.rowcheck:checked').length;
-      counter.textContent = n;
-      selectAll.checked = n > 0 && n === checks.length;
-      selectAll.indeterminate = n > 0 && n < checks.length;
-    }
-    selectAll.addEventListener('change', function () {
-      checks.forEach(function (c) { c.checked = selectAll.checked; });
-      update();
-    });
-    checks.forEach(function (c) { c.addEventListener('change', update); });
-    update();
-
-    document.getElementById('bulk-form').addEventListener('submit', function (e) {
-      var n = document.querySelectorAll('.rowcheck:checked').length;
-      if (n === 0) {
-        alert('Bitte zuerst Artikel auswählen.');
-        e.preventDefault();
-        return;
-      }
-      var action = (e.submitter && e.submitter.getAttribute('formaction')) || '';
-      if (action.indexOf('bulk-labels') !== -1) return;  // Drucken: keine Rückfrage
-      if (!confirm(n + ' Artikel bearbeiten?')) e.preventDefault();
-    });
-  })();
-</script>
-{% else %}
-<div class="empty">
-  <p>Noch keine Artikel gefunden.</p>
-  <a class="btn btn-primary" href="/articles/new">Ersten Artikel anlegen</a>
-</div>
-{% endif %}
+{% include "partials/articles_results.html" %}
 {% endblock %}

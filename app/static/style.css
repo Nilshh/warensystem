@@ -326,3 +326,79 @@ table.data.compact th, table.data.compact td { padding: .4rem .6rem; }
   .container { padding: 0 1rem; }
   .barchart { height: 140px; }
 }
+
+/* ===========================================================================
+   UI-Vereinfachung (htmx + Mobil), Juli 2026
+   =========================================================================== */
+
+/* Inline-Abwicklungspanel (Badge + Tracking + Aktionsknöpfe als Einheit) */
+.fulfil-inline { display: flex; flex-direction: column; gap: .35rem; align-items: flex-start; }
+.panel-cell { min-width: 190px; }
+.task-list .fulfil-inline { flex-direction: row; align-items: center; flex-wrap: wrap; margin-left: auto; }
+/* htmx: kurzes Ausblenden während der Anfrage als Feedback */
+.fulfil-inline.htmx-request { opacity: .45; }
+
+/* Filterbar: "Filtern"-Knopf ist mit JavaScript überflüssig (Live-Suche) */
+.js [data-hide-js] { display: none; }
+
+/* Bulkbar erscheint erst bei Auswahl (ohne JavaScript immer sichtbar) */
+.js .bulkbar { display: none; }
+.js .bulkbar.is-active { display: flex; }
+
+/* Einlagern-Box am Lagerort */
+.intake-box { border-left: 3px solid var(--green); }
+
+/* Formular: einklappbare Nebenabschnitte */
+.form-section {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--card); margin-bottom: 1.25rem;
+}
+.form-section summary {
+  cursor: pointer; font-weight: 600; padding: .85rem 1.1rem;
+  list-style-position: inside;
+}
+.form-section summary:hover { color: var(--primary); }
+.form-section .form-section-body { padding: 0 1.1rem 1.1rem; }
+
+/* ---------------------------------------------------------------------------
+   Mobil: Tabellen werden zu Karten (rein per CSS, Desktop unverändert)
+   --------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .hide-m { display: none !important; }
+
+  table.data.cardable { min-width: 0; display: block; }
+  table.data.cardable thead { display: none; }
+  table.data.cardable tbody { display: block; }
+  table.data.cardable tbody tr {
+    display: flex; flex-wrap: wrap; align-items: center;
+    gap: .3rem .9rem; padding: .7rem .8rem;
+    border-bottom: 6px solid var(--bg);
+  }
+  table.data.cardable tbody tr:last-child { border-bottom: none; }
+  table.data.cardable td {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: 0; border: none; font-size: .88rem;
+  }
+  /* Beschriftung aus der (ausgeblendeten) Spaltenüberschrift */
+  table.data.cardable td[data-label]::before {
+    content: attr(data-label); color: var(--muted); font-size: .72rem;
+  }
+  /* Titel bekommt die volle Breite und Gewicht */
+  table.data.cardable td.title-cell,
+  table.data.cardable td.col-artikel { flex: 1 1 100%; display: block; }
+  /* Abwicklungspanel und Zeilen-Aktionen auf eigener Zeile */
+  table.data.cardable td.panel-cell { flex: 1 1 100%; min-width: 0; }
+  table.data.cardable td.row-actions { flex: 1 1 100%; text-align: left; }
+  /* Zahlen: keine künstliche Rechtsbündigkeit in der Karte */
+  table.data.cardable td.num { text-align: left; }
+  /* Bild etwas größer, damit man am Handy etwas erkennt */
+  table.data.cardable .thumb { width: 52px; height: 52px; }
+  table.data.cardable .thumb-cell { width: auto; }
+
+  /* Karten-Rahmen kommt vom umgebenden .table-wrap */
+  .table-wrap { overflow-x: visible; }
+
+  /* Bulkbar & Filterbar kompakter */
+  .bulkbar { position: sticky; top: 3.4rem; z-index: 5; }
+  .topbar nav { gap: .8rem; flex-wrap: wrap; }
+}

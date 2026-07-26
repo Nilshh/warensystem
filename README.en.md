@@ -292,7 +292,7 @@ Tests run against a temporary database and never touch your data.
 ## Architecture
 
 - **Backend**: FastAPI, SQLAlchemy, SQLite
-- **Frontend**: server-side Jinja2 templates + a little vanilla JS (no build step)
+- **Frontend**: server-side Jinja2 templates + htmx (bundled locally, no build step); responsive card layout on mobile
 - **Images/QR**: Pillow, qrcode
 - **Container**: `python:3.12-slim`, started via `uvicorn`
 

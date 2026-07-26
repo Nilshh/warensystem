@@ -100,8 +100,9 @@
     </label>
   </fieldset>
 
-  <fieldset>
-    <legend>Preise &amp; Versand-Vorbelegung (€)</legend>
+  <details class="form-section" {{ 'open' if article and (article.purchase_cost or article.listing_price or article.shipping_method) else '' }}>
+    <summary>Preise &amp; Versand-Vorbelegung (€)</summary>
+    <div class="form-section-body">
     <p class="hint">Preise gelten je Stück. Der tatsächliche Verkaufspreis, Gebühren und
       Käuferdaten werden beim <strong>Verkauf erfassen</strong> eingetragen.</p>
     <div class="row">
@@ -140,10 +141,12 @@
         </select>
       </label>
     </div>
-  </fieldset>
+  </div>
+  </details>
 
-  <fieldset>
-    <legend>Plattformen</legend>
+  <details class="form-section" {{ 'open' if article and (article.ebay_url or article.kleinanzeigen_url or article.offered_ebay or article.offered_kleinanzeigen or article.ebay_item_id) else '' }}>
+    <summary>Plattformen</summary>
+    <div class="form-section-body">
     <div class="row">
       <label class="check">
         <input type="checkbox" name="offered_ebay" {{ 'checked' if article and article.offered_ebay else '' }}>
@@ -163,14 +166,17 @@
     <label>Kleinanzeigen-Link
       <input type="url" name="kleinanzeigen_url" value="{{ article.kleinanzeigen_url if article else '' }}" placeholder="https://www.kleinanzeigen.de/s-anzeige/…">
     </label>
-  </fieldset>
+  </div>
+  </details>
 
-  <fieldset>
-    <legend>Notizen</legend>
+  <details class="form-section" {{ 'open' if article and article.note else '' }}>
+    <summary>Notizen</summary>
+    <div class="form-section-body">
     <label>Notizen <span class="muted">(Sonderfälle, z.B. Zustand, Zubehör, Absprachen)</span>
       <textarea name="note" rows="2">{{ article.note if article else '' }}</textarea>
     </label>
-  </fieldset>
+  </div>
+  </details>
 
   <div class="form-actions">
     <button type="submit" class="btn btn-primary">Speichern</button>

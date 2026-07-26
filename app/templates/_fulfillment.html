@@ -26,11 +26,25 @@
 {% endif %}
 {% endmacro %}
 
+{# Komplettes Abwicklungs-Element: Badge + (optional) Tracking + Aktionsknöpfe.
+   Per htmx ersetzt sich das Element nach einem Statuswechsel selbst — ohne
+   JavaScript posten die Formulare klassisch und leiten auf `back` zurück. #}
+{% macro panel(sale, back='/sales', show_tracking=True) %}
+<div class="fulfil-inline" id="fulfil-{{ sale.id }}"
+     hx-vals='{"show_tracking": "{{ 1 if show_tracking else 0 }}"}'>
+  {{ badge(sale.fulfillment) }}
+  {% if show_tracking %}{{ tracking(sale, show_method=False) }}{% endif %}
+  {{ actions(sale, back) }}
+</div>
+{% endmacro %}
+
 {# Aktionsknöpfe: nächster Schritt(e) + Stornieren. `back` ist die Ziel-URL. #}
 {% macro actions(sale, back='/sales') %}
 <span class="fulfil-actions">
   {% if sale.fulfillment == FULFILLMENT_CANCELLED %}
-    <form method="post" action="/sales/{{ sale.id }}/fulfillment" style="display:inline">
+    <form method="post" action="/sales/{{ sale.id }}/fulfillment" style="display:inline"
+          hx-post="/sales/{{ sale.id }}/fulfillment"
+          hx-target="#fulfil-{{ sale.id }}" hx-swap="outerHTML">
       <input type="hidden" name="to" value="Verkauft">
       <input type="hidden" name="back" value="{{ back }}">
       <button class="btn btn-sm" type="submit">↩ Storno aufheben</button>
@@ -47,6 +61,8 @@
       {{ step_button(sale, 'Abgeschlossen', '✔ Abschließen', back, primary=True) }}
     {% endif %}
     <form method="post" action="/sales/{{ sale.id }}/fulfillment" style="display:inline"
+          hx-post="/sales/{{ sale.id }}/fulfillment"
+          hx-target="#fulfil-{{ sale.id }}" hx-swap="outerHTML"
           onsubmit="return confirm('Verkauf stornieren? Die {{ sale.quantity }} Stück werden dem Bestand wieder gutgeschrieben.')">
       <input type="hidden" name="to" value="{{ FULFILLMENT_CANCELLED }}">
       <input type="hidden" name="back" value="{{ back }}">
@@ -57,7 +73,9 @@
 {% endmacro %}
 
 {% macro step_button(sale, target, label, back, primary=False) %}
-<form method="post" action="/sales/{{ sale.id }}/fulfillment" style="display:inline">
+<form method="post" action="/sales/{{ sale.id }}/fulfillment" style="display:inline"
+      hx-post="/sales/{{ sale.id }}/fulfillment"
+      hx-target="#fulfil-{{ sale.id }}" hx-swap="outerHTML">
   <input type="hidden" name="to" value="{{ target }}">
   <input type="hidden" name="back" value="{{ back }}">
   <button class="btn btn-sm {{ 'btn-primary' if primary else '' }}" type="submit">{{ label }}</button>

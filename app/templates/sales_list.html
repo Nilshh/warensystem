@@ -42,33 +42,32 @@
 
 {% if sales %}
 <div class="table-wrap">
-<table class="data sales">
+<table class="data sales cardable">
   <thead>
     <tr>
       <th class="col-datum">Verkauft am</th><th class="col-artikel">Artikel</th><th class="num">Stück</th>
-      <th class="num">Erlös</th><th class="num">Gebühren</th><th class="num">Gewinn</th>
-      <th class="col-kaeufer">Käufer</th><th class="col-plattform">Plattform</th>
+      <th class="num">Erlös</th><th class="num hide-m">Gebühren</th><th class="num">Gewinn</th>
+      <th class="col-kaeufer">Käufer</th><th class="col-plattform hide-m">Plattform</th>
       <th class="col-status">Status</th><th></th>
     </tr>
   </thead>
   <tbody>
     {% for s in sales %}
     <tr class="{{ 'row-cancelled' if s.is_cancelled else '' }}">
-      <td class="col-datum">{{ s.sold_at | date }}</td>
-      <td class="col-artikel">
+      <td class="col-datum" data-label="Verkauft am">{{ s.sold_at | date }}</td>
+      <td class="col-artikel title-cell">
         {% if s.article %}
         <a href="/articles/{{ s.article.id }}"><span class="mono">{{ s.article.article_no }}</span> {{ s.article.title }}</a>
         {% else %}<span class="muted">– gelöscht –</span>{% endif %}
       </td>
-      <td class="num">{{ s.quantity }}</td>
-      <td class="num">{{ s.sold_price | eur }}</td>
-      <td class="num">{{ s.fees | eur }}</td>
-      <td class="num {{ 'positive' if s.profit >= 0 else 'negative' }}">{{ s.profit | eur }}</td>
-      <td class="col-kaeufer">{{ s.buyer_name or '–' }}</td>
-      <td class="col-plattform">{{ s.sale_platform or '–' }}</td>
-      <td class="col-status">
-        {{ f.badge(s.fulfillment) }}
-        {{ f.tracking(s, show_method=False) }}
+      <td class="num" data-label="Stück">{{ s.quantity }}</td>
+      <td class="num" data-label="Erlös">{{ s.sold_price | eur }}</td>
+      <td class="num hide-m" data-label="Gebühren">{{ s.fees | eur }}</td>
+      <td class="num {{ 'positive' if s.profit >= 0 else 'negative' }}" data-label="Gewinn">{{ s.profit | eur }}</td>
+      <td class="col-kaeufer" data-label="Käufer">{{ s.buyer_name or '–' }}</td>
+      <td class="col-plattform hide-m" data-label="Plattform">{{ s.sale_platform or '–' }}</td>
+      <td class="col-status panel-cell">
+        {{ f.panel(s, '/sales') }}
       </td>
       <td class="row-actions">
         <a class="btn btn-sm" href="/sales/{{ s.id }}/edit">Bearbeiten</a>
@@ -80,6 +79,6 @@
 </table>
 </div>
 {% else %}
-<div class="empty"><p>Keine Verkäufe gefunden.</p></div>
+<div class="empty"><p>Noch keine Verkäufe gefunden.</p></div>
 {% endif %}
 {% endblock %}

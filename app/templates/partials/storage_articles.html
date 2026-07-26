@@ -1,0 +1,52 @@
+{# Fragment der Lagerort-Seite: Einlagern-Formular + Artikelliste.
+   Wird per htmx nach dem Einlagern komplett neu gerendert (Formular leer,
+   Meldung sichtbar, Liste aktuell); ohne JavaScript postet das Formular
+   klassisch und die Seite lädt mit Meldung neu. #}
+<div id="loc-articles">
+  {% if msg %}<div class="banner success">✔ {{ msg }}</div>{% endif %}
+  {% if error %}<div class="banner error">⚠ {{ error }}</div>{% endif %}
+
+  <section class="card intake-box">
+    <h2>➕ Artikel hier einlagern</h2>
+    <form method="post" action="/storage/location/assign" class="import-form"
+          hx-post="/storage/location/assign"
+          hx-target="#loc-articles" hx-swap="outerHTML">
+      <input type="hidden" name="area" value="{{ area }}">
+      <input type="hidden" name="shelf" value="{{ shelf }}">
+      <input type="hidden" name="bin" value="{{ bin }}">
+      <input type="text" name="article_no" required autofocus
+             autocomplete="off" autocapitalize="characters"
+             placeholder="Artikelnummer, z.B. WA-00123 (oder nur 123)…">
+      <button class="btn btn-primary" type="submit">Einlagern</button>
+    </form>
+    <p class="muted">Verschiebt den Artikel auf diesen Lagerplatz — auch von einem anderen Platz (Umlagern).</p>
+  </section>
+
+  <p class="muted">Das sollte hier liegen ({{ articles|length }} Artikel):</p>
+
+  {% if articles %}
+  <div class="table-wrap">
+  <table class="data cardable">
+    <thead>
+      <tr><th>Nr.</th><th>Bild</th><th>Titel</th><th>Status</th><th class="num">Angebot</th></tr>
+    </thead>
+    <tbody>
+      {% for a in articles %}
+      <tr onclick="window.location='/articles/{{ a.id }}'">
+        <td class="mono artno-cell">{{ a.article_no }}</td>
+        <td class="thumb-cell">
+          {% if a.images %}<img class="thumb" src="/uploads/{{ a.images[0].thumb }}" alt="" loading="lazy">
+          {% else %}<span class="thumb placeholder">—</span>{% endif %}
+        </td>
+        <td class="title-cell"><strong>{{ a.title }}</strong></td>
+        <td><span class="badge status-{{ a.status | lower }}">{{ a.status }}</span></td>
+        <td class="num" data-label="Angebot">{{ a.listing_price | eur }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div class="empty"><p>Dieser Lagerort ist leer.</p></div>
+  {% endif %}
+</div>

@@ -18,8 +18,7 @@
         {% else %}Verkauf LS-{{ '%05d' % s.id }}{% endif %}
       </a>
       <span class="muted">{{ s.buyer_name or '' }} · {{ s.sold_at | date }}</span>
-      {{ f.badge(s.fulfillment) }}
-      {{ f.actions(s, '/') }}
+      {{ f.panel(s, '/', show_tracking=False) }}
     </li>
     {% endfor %}
   </ul>

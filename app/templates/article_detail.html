@@ -139,25 +139,25 @@
   <h2>Verkaufshistorie ({{ article.sales|length }})</h2>
   {% if article.sales %}
   <div class="table-wrap">
-  <table class="data">
+  <table class="data cardable">
     <thead>
       <tr>
         <th>Verkauft am</th><th class="num">Stück</th><th class="num">Erlös</th>
-        <th class="num">Gebühren</th><th class="num">Gewinn</th>
+        <th class="num hide-m">Gebühren</th><th class="num">Gewinn</th>
         <th>Käufer</th><th>Versand</th><th>Status</th><th></th>
       </tr>
     </thead>
     <tbody>
       {% for s in article.sales|reverse %}
       <tr class="{{ 'row-cancelled' if s.is_cancelled else '' }}">
-        <td>{{ s.sold_at | date }}</td>
-        <td class="num">{{ s.quantity }}</td>
-        <td class="num">{{ s.sold_price | eur }}</td>
-        <td class="num">{{ s.fees | eur }}</td>
-        <td class="num {{ 'positive' if s.profit >= 0 else 'negative' }}">{{ s.profit | eur }}</td>
-        <td>{{ s.buyer_name or '–' }}</td>
-        <td>{% if s.shipping_method or s.tracking_number %}{{ f.tracking(s) }}{% else %}<span class="muted">–</span>{% endif %}</td>
-        <td>{{ f.badge(s.fulfillment) }}</td>
+        <td data-label="Verkauft am">{{ s.sold_at | date }}</td>
+        <td class="num" data-label="Stück">{{ s.quantity }}</td>
+        <td class="num" data-label="Erlös">{{ s.sold_price | eur }}</td>
+        <td class="num hide-m" data-label="Gebühren">{{ s.fees | eur }}</td>
+        <td class="num {{ 'positive' if s.profit >= 0 else 'negative' }}" data-label="Gewinn">{{ s.profit | eur }}</td>
+        <td data-label="Käufer">{{ s.buyer_name or '–' }}</td>
+        <td data-label="Versand">{% if s.shipping_method or s.tracking_number %}{{ f.tracking(s) }}{% else %}<span class="muted">–</span>{% endif %}</td>
+        <td class="panel-cell">{{ f.panel(s, '/articles/' ~ article.id, show_tracking=False) }}</td>
         <td class="row-actions">
           <a class="btn btn-sm" href="/sales/{{ s.id }}/edit">Bearbeiten</a>
           <a class="btn btn-sm" href="/sales/{{ s.id }}/lieferschein" target="_blank">🧾</a>
