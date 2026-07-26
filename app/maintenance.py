@@ -132,6 +132,31 @@ def migrate_legacy_sales() -> int:
         db.close()
 
 
+def drop_legacy_article_columns() -> list[str]:
+    """Entfernt die Alt-Verkaufsspalten aus `articles`, nachdem sie migriert sind.
+
+    Diese Spalten sind nicht mehr Teil des Modells. Solange sie physisch in der
+    Tabelle liegen und (aus dem alten Schema) NOT NULL ohne Server-Default sind,
+    schlägt JEDES Anlegen eines Artikels fehl. Deshalb hier entfernen — erst
+    NACH migrate_legacy_sales(), damit keine Verkaufsdaten verloren gehen.
+
+    Bei einem zurückgespielten Alt-Backup läuft die Migration erneut und
+    anschließend wieder dieser Schritt.
+    """
+    vorhanden = {c["name"] for c in inspect(engine).get_columns("articles")}
+    zu_entfernen = [c for c in _LEGACY_COLUMNS if c in vorhanden]
+    entfernt: list[str] = []
+    for name in zu_entfernen:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE articles DROP COLUMN {name}"))
+            entfernt.append(name)
+        except Exception:
+            # z.B. sehr altes SQLite ohne DROP COLUMN — nicht abbrechen
+            log.warning("Alt-Spalte articles.%s konnte nicht entfernt werden.", name)
+    if entfernt:
+        log.info("Alt-Spalten entfernt: %s", ", ".join(entfernt))
+    return entfernt
 
 
 def backfill_fulfillment() -> None:

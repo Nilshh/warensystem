@@ -73,6 +73,28 @@ def test_migration_ist_idempotent(db):
     assert len(a.sales) == 1
 
 
+def test_alt_spalten_werden_entfernt(db, client):
+    """Nach der Migration dürfen die Alt-Verkaufsspalten nicht mehr in der
+    Tabelle liegen — sonst schlägt jedes Anlegen eines Artikels fehl
+    (NOT NULL ohne Server-Default)."""
+    _simulate_old_database(db)
+    vorher = {r[1] for r in db.execute(text("PRAGMA table_info(articles)"))}
+    assert {"sold_price", "fees", "buyer_name", "sold_at"} <= vorher
+
+    maintenance.migrate_legacy_sales()
+    entfernt = maintenance.drop_legacy_article_columns()
+    assert "sold_price" in entfernt
+
+    nachher = {r[1] for r in db.execute(text("PRAGMA table_info(articles)"))}
+    assert not ({"sold_price", "fees", "buyer_name", "sold_at"} & nachher)
+
+    # und danach lässt sich ein neuer Artikel anlegen
+    r = client.post("/articles/new", data={"title": "Nach Migration", "status": "Angeboten",
+                                           "quantity": "1"}, follow_redirects=False)
+    assert r.status_code == 303
+    assert db.query(Article).filter_by(title="Nach Migration").count() == 1
+
+
 def test_migration_laesst_offene_artikel_in_ruhe(db):
     a = Article(title="Offen", status="Angeboten", quantity=1, purchase_cost=50)
     db.add(a)

@@ -15,6 +15,7 @@ from .maintenance import (
     backfill_article_numbers,
     backfill_fulfillment,
     backfill_storage_locations,
+    drop_legacy_article_columns,
     lifespan,
     migrate_legacy_sales,
 )
@@ -28,7 +29,8 @@ Base.metadata.create_all(engine)
 run_migrations(engine)
 backfill_article_numbers()
 backfill_storage_locations()
-migrate_legacy_sales()
+migrate_legacy_sales()          # liest die Alt-Spalten aus
+drop_legacy_article_columns()   # ... und entfernt sie danach (sonst NOT-NULL-Fehler)
 backfill_fulfillment()
 
 app = FastAPI(title="Warenwirtschaftssystem", lifespan=lifespan)
