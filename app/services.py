@@ -101,12 +101,23 @@ def set_status(article: Article, new_status: str) -> None:
     article.status = new_status
 
 
-def _free_storage_if_sold_out(article: Article) -> None:
-    """Gibt den Lagerplatz frei, sobald der Bestand aufgebraucht ist."""
-    if article.quantity <= 0:
-        article.storage_area = ""
-        article.storage_shelf = ""
-        article.storage_bin = ""
+def _maybe_free_storage(article: Article | None) -> None:
+    """Gibt den Lagerplatz frei — aber erst, wenn nichts mehr dort liegt.
+
+    Bedingung: kein Bestand mehr UND kein Verkauf mehr, der noch versendet
+    werden muss. Solange ein verkauftes Stück noch aufs Regal wartet (Status vor
+    „Versendet"), bleibt der Platz erhalten — damit man den Artikel zum Packen
+    noch findet.
+    """
+    if article is None or article.quantity > 0:
+        return
+    versendet = fulfillment_rank("Versendet")
+    for s in article.sales:
+        if not s.is_cancelled and fulfillment_rank(s.fulfillment) < versendet:
+            return          # dieses Stück liegt noch da und muss raus
+    article.storage_area = ""
+    article.storage_shelf = ""
+    article.storage_bin = ""
 
 
 def _set_article_storage(article: Article, loc: StorageLocation | None) -> None:
@@ -338,10 +349,13 @@ def _storage_url(area: str, shelf: str, bin_: str) -> str:
     return f"{config.BASE_URL}/storage/location?{_storage_query(area, shelf, bin_)}"
 
 def _sync_stock_status(article: Article) -> None:
-    """Hält Status/Lagerplatz konsistent zum Bestand (nach Verkauf/Korrektur)."""
+    """Hält den Status konsistent zum Bestand (nach Verkauf/Korrektur).
+
+    Der Lagerplatz wird hier bewusst NICHT freigegeben — das passiert erst beim
+    Versand (siehe `_maybe_free_storage`), damit man den Artikel zum Packen findet.
+    """
     if article.quantity <= 0:
         article.status = "Verkauft"
-        _free_storage_if_sold_out(article)
     elif article.status in ("Verkauft", "Archiviert"):
         # Bestand wieder da (z.B. Verkauf korrigiert/gelöscht) -> wieder anbieten
         article.status = "Angeboten"
@@ -370,6 +384,8 @@ def advance_fulfillment(sale: Sale, target: str) -> bool:
         return False
     _stamp_fulfillment(sale, target)
     sale.fulfillment = target
+    if fulfillment_rank(target) >= fulfillment_rank("Versendet"):
+        _maybe_free_storage(sale.article)      # ab Versand ist das Regal frei
     return True
 
 
@@ -394,6 +410,8 @@ def set_fulfillment(db: Session, sale: Sale, target: str) -> None:
 
     _stamp_fulfillment(sale, target)
     sale.fulfillment = target
+    if fulfillment_rank(target) >= fulfillment_rank("Versendet"):
+        _maybe_free_storage(sale.article)      # ab Versand ist das Regal frei
 
 
 def _stamp_fulfillment(sale: Sale, target: str) -> None:

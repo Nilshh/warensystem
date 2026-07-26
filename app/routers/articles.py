@@ -397,14 +397,17 @@ async def sell_submit(article_id: int, request: Request, db: Session = Depends(g
         shipped_at=parse_date(form.get("shipped_at")),
         sold_at=datetime.now(timezone.utc),
     )
-    # Abwicklung: schon beim Erfassen versendet? -> gleich 'Versendet'
-    if sale.shipped_at:
-        advance_fulfillment(sale, "Versendet")
     db.add(sale)
 
-    # Bestand reduzieren; bei Ausverkauf Status setzen und Lagerplatz freigeben
+    # Bestand reduzieren; bei Ausverkauf Status auf "Verkauft".
+    # Der Lagerplatz bleibt erhalten (zum Packen) — er wird erst beim Versand frei.
     article.quantity -= qty
     _sync_stock_status(article)
+    db.flush()                    # Verkauf in article.sales sichtbar machen
+
+    # Schon beim Erfassen versendet? -> 'Versendet' (gibt den Lagerplatz frei)
+    if sale.shipped_at:
+        advance_fulfillment(sale, "Versendet")
     db.commit()
 
     rest = f" Restbestand: {article.quantity}." if article.quantity > 0 else " Artikel ist jetzt ausverkauft."

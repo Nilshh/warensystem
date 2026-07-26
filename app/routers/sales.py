@@ -139,13 +139,14 @@ async def sale_edit(sale_id: int, request: Request, db: Session = Depends(get_db
     if sold_at:
         sale.sold_at = sold_at
 
-    # Abwicklung mitziehen: Versanddatum -> mindestens 'Versendet'
-    if sale.shipped_at:
-        advance_fulfillment(sale, "Versendet")
-
     if article:
         article.quantity -= delta          # Bestand entsprechend korrigieren
         _sync_stock_status(article)
+
+    # Abwicklung mitziehen: Versanddatum -> mindestens 'Versendet'
+    # (nach der Bestandskorrektur, damit der Lagerplatz korrekt frei wird)
+    if sale.shipped_at:
+        advance_fulfillment(sale, "Versendet")
     db.commit()
 
     note = urllib.parse.quote(f"Verkauf korrigiert. Gewinn: {format_eur(sale.profit)}.")

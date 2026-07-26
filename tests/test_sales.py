@@ -43,7 +43,9 @@ def test_verkauf_reduziert_bestand(client, db, make_article):
     assert len(a.sales) == 1
 
 
-def test_ausverkauf_setzt_status_und_gibt_lagerplatz_frei(client, db, make_article):
+def test_ausverkauf_behaelt_lagerplatz_bis_versand(client, db, make_article):
+    """Beim Verkauf bleibt der Lagerplatz sichtbar (zum Packen); erst der
+    Versand gibt ihn frei."""
     client.post("/storage/new", data={"area": "Keller", "shelf": "A", "bin": "3"})
     loc_id = db.query(StorageLocation).one().id
     a = make_article(quantity=1, storage_location_id=loc_id)
@@ -54,7 +56,13 @@ def test_ausverkauf_setzt_status_und_gibt_lagerplatz_frei(client, db, make_artic
     db.refresh(a)
     assert a.quantity == 0
     assert a.status == "Verkauft"
-    assert a.storage_location == ""         # Platz ist wieder frei
+    assert a.storage_location == "Keller, Regal A, Fach 3"   # noch da – muss gepackt werden
+
+    # Erst der Versand gibt den Lagerplatz frei
+    sale = a.sales[0]
+    client.post(f"/sales/{sale.id}/fulfillment", data={"to": "Versendet", "back": "/sales"})
+    db.refresh(a)
+    assert a.storage_location == ""
 
 
 def test_verkauf_ueber_bestand_wird_abgelehnt(client, db, make_article):

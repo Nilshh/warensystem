@@ -174,3 +174,80 @@ def test_sales_filter_nach_status(client, db):
     assert f"LS-{s2.id:05d}" not in html or "Abgeschlossen" not in html
     # der offene Verkauf ist sichtbar, der abgeschlossene rausgefiltert
     assert "🛒 Verkauft" in html
+
+
+# --- Lagerplatz erst beim Versand freigeben ---------------------------------
+def _mit_lager(client, db, make_article, quantity=1):
+    client.post("/storage/new", data={"area": "Keller", "shelf": "A", "bin": "3"})
+    from app.models import StorageLocation
+    loc = db.query(StorageLocation).filter_by(bin="3").first()
+    a = make_article(quantity=quantity, storage_location_id=loc.id)
+    return a
+
+
+def test_lagerplatz_bleibt_beim_verkauf(client, db, make_article):
+    a = _mit_lager(client, db, make_article)
+    client.post(f"/articles/{a.id}/sell",
+                data={"quantity": "1", "sold_price": "10", "shipping_payer": "Käufer"})
+    db.refresh(a)
+    assert a.quantity == 0
+    assert a.storage_location == "Keller, Regal A, Fach 3"   # noch da
+
+
+def test_lagerplatz_wird_bei_versand_frei(client, db, make_article):
+    a = _mit_lager(client, db, make_article)
+    client.post(f"/articles/{a.id}/sell",
+                data={"quantity": "1", "sold_price": "10", "shipping_payer": "Käufer"})
+    db.refresh(a)
+    sale = a.sales[0]
+    client.post(f"/sales/{sale.id}/fulfillment", data={"to": "Versendet", "back": "/sales"})
+    db.refresh(a)
+    assert a.storage_location == ""
+
+
+def test_versanddatum_im_verkauf_gibt_lager_frei(client, db, make_article):
+    a = _mit_lager(client, db, make_article)
+    client.post(f"/articles/{a.id}/sell",
+                data={"quantity": "1", "sold_price": "10", "shipping_payer": "Käufer",
+                      "shipped_at": "2026-07-10"})
+    db.refresh(a)
+    assert a.sales[0].fulfillment == "Versendet"
+    assert a.storage_location == ""                          # direkt versendet -> frei
+
+
+def test_lager_bleibt_solange_ein_stueck_unversendet(client, db, make_article):
+    """Bei mehreren verkauften Stücken bleibt der Platz, bis alle versendet sind."""
+    a = _mit_lager(client, db, make_article, quantity=2)
+    client.post(f"/articles/{a.id}/sell", data={"quantity": "1", "sold_price": "10", "shipping_payer": "Käufer"})
+    client.post(f"/articles/{a.id}/sell", data={"quantity": "1", "sold_price": "10", "shipping_payer": "Käufer"})
+    db.refresh(a)
+    assert a.quantity == 0
+    s1, s2 = a.sales
+    # erstes Stück versenden -> Platz bleibt (zweites liegt noch da)
+    client.post(f"/sales/{s1.id}/fulfillment", data={"to": "Versendet", "back": "/sales"})
+    db.refresh(a)
+    assert a.storage_location == "Keller, Regal A, Fach 3"
+    # zweites versenden -> jetzt frei
+    client.post(f"/sales/{s2.id}/fulfillment", data={"to": "Versendet", "back": "/sales"})
+    db.refresh(a)
+    assert a.storage_location == ""
+
+
+def test_zustellung_ueber_tracking_gibt_lager_frei(db, monkeypatch, make_article, client):
+    """Springt der Status per Tracking direkt auf zugestellt, wird auch frei."""
+    monkeypatch.setattr(config, "DHL_API_KEY", "test")
+    a = _mit_lager(client, db, make_article)
+    client.post(f"/articles/{a.id}/sell",
+                data={"quantity": "1", "sold_price": "10", "shipping_payer": "Käufer",
+                      "shipping_method": "DHL Paket 2 kg", "tracking_number": "00340001"})
+    db.refresh(a)
+
+    def fake_track(carrier, number):
+        return carriers.TrackingResult(status=carriers.ZUGESTELLT, text="Zugestellt",
+                                       delivered_at=datetime.now(timezone.utc))
+    monkeypatch.setattr(carriers, "track", fake_track)
+
+    maintenance.update_tracking()
+    db.refresh(a)
+    assert a.sales[0].fulfillment == "Zugestellt"
+    assert a.storage_location == ""
