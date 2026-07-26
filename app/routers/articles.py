@@ -1,4 +1,5 @@
 """Routen: articles."""
+import logging
 import uuid
 import urllib.parse
 from datetime import datetime, timezone
@@ -16,6 +17,7 @@ from ..models import Article, ArticleImage, Sale, StorageLocation, STATUSES, CON
 from ..services import assign_article_no, ALLOWED_IMAGE_EXT, parse_float, parse_date, apply_form, set_status, _set_article_storage, apply_storage, all_categories, all_locations, SORT_COLUMNS, INTAKE_LIMIT, parse_intake_lines, allocate_costs, _back_to_list, _form_context, _delete_image_files, _create_article_from_item, BULK_IMPORT_LIMIT, _get_article, _article_url, make_qr_svg, _sync_stock_status, advance_fulfillment
 from ..web import templates, format_eur
 
+log = logging.getLogger("warensystem")
 router = APIRouter()
 
 
@@ -250,12 +252,16 @@ async def import_from_ebay(
     """Legt aus einem eBay-Link einen Entwurf an (Browse API) und lädt Bilder."""
     try:
         item = ebay.fetch_item(ebay_url)
+        article = _create_article_from_item(db, item, ebay_url)
+        db.commit()
     except ebay.EbayError as e:
-        msg = urllib.parse.quote(str(e))
+        return RedirectResponse(f"/articles/new?error={urllib.parse.quote(str(e))}",
+                                status_code=303)
+    except Exception as e:                     # nie mit 500 abbrechen
+        log.exception("eBay-Import fehlgeschlagen: %s", ebay_url)
+        db.rollback()
+        msg = urllib.parse.quote(f"eBay-Import fehlgeschlagen: {e}")
         return RedirectResponse(f"/articles/new?error={msg}", status_code=303)
-
-    article = _create_article_from_item(db, item, ebay_url)
-    db.commit()
     return RedirectResponse(f"/articles/{article.id}/edit", status_code=303)
 
 
@@ -292,13 +298,18 @@ async def import_from_ebay_bulk(
             continue
         try:
             item = ebay.fetch_item(line)
+            article = _create_article_from_item(db, item, line)
+            db.flush()
         except ebay.EbayError as e:
             failed += 1
             results.append({"input": line, "status": "failed", "message": str(e)})
             continue
-
-        article = _create_article_from_item(db, item, line)
-        db.flush()
+        except Exception as e:                 # ein kaputter Eintrag stoppt nicht den Rest
+            log.exception("eBay-Import fehlgeschlagen: %s", line)
+            db.rollback()
+            failed += 1
+            results.append({"input": line, "status": "failed", "message": f"Fehler: {e}"})
+            continue
         seen_in_batch.add(article.ebay_item_id)
         imported += 1
         results.append({

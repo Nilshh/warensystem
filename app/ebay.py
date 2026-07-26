@@ -47,6 +47,26 @@ def is_configured() -> bool:
 # ---------------------------------------------------------------------------
 # OAuth (Client-Credentials / App-Token)
 # ---------------------------------------------------------------------------
+def _request_json(req, timeout: int, was: str) -> dict:
+    """Führt einen HTTP-Request aus und parst JSON — alle Fehler als EbayError.
+
+    Fängt auch TimeoutError und ungültiges JSON ab (sonst würde daraus ein 500).
+    HTTPError wird durchgereicht, damit der Aufrufer den Statuscode auswerten kann.
+    """
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read()
+    except urllib.error.HTTPError:
+        raise                                  # vom Aufrufer behandelt (Statuscode)
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        reason = getattr(e, "reason", e)
+        raise EbayError(f"eBay nicht erreichbar ({was}): {reason}")
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        raise EbayError(f"eBay lieferte eine unerwartete Antwort ({was}).")
+
+
 def _get_app_token() -> str:
     global _token_cache
     if _token_cache and _token_cache[1] > time.time() + 60:
@@ -68,13 +88,10 @@ def _get_app_token() -> str:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read())
+        data = _request_json(req, 15, "Anmeldung")
     except urllib.error.HTTPError as e:
         detail = e.read().decode(errors="replace")[:300]
         raise EbayError(f"eBay-Anmeldung fehlgeschlagen ({e.code}). Prüfe Client-ID/Secret. {detail}")
-    except urllib.error.URLError as e:
-        raise EbayError(f"eBay nicht erreichbar: {e.reason}")
 
     token = data.get("access_token")
     if not token:
@@ -142,43 +159,43 @@ def fetch_item(url_or_id: str) -> dict:
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            item = json.loads(resp.read())
+        item = _request_json(req, 20, "Artikelabruf")
     except urllib.error.HTTPError as e:
         if e.code == 404:
             raise EbayError(f"Kein Inserat mit der Artikelnummer {item_id} gefunden.")
         detail = e.read().decode(errors="replace")[:300]
         raise EbayError(f"eBay-Abruf fehlgeschlagen ({e.code}). {detail}")
-    except urllib.error.URLError as e:
-        raise EbayError(f"eBay nicht erreichbar: {e.reason}")
 
+    # Robust gegen fehlende/null-Felder: eBay lässt Felder auch als null da.
     # Verfügbare Stückzahl aus dem Inserat (Standard 1)
     quantity = 1
     avails = item.get("estimatedAvailabilities") or []
     if avails:
-        qty = avails[0].get("estimatedAvailableQuantity")
+        qty = (avails[0] or {}).get("estimatedAvailableQuantity")
         if isinstance(qty, int) and qty > 0:
             quantity = qty
 
     price = item.get("price") or {}
     images = []
-    if item.get("image", {}).get("imageUrl"):
-        images.append(item["image"]["imageUrl"])
-    for extra in item.get("additionalImages", []) or []:
-        if extra.get("imageUrl"):
-            images.append(extra["imageUrl"])
+    primary = (item.get("image") or {}).get("imageUrl")
+    if primary:
+        images.append(primary)
+    for extra in item.get("additionalImages") or []:
+        url = (extra or {}).get("imageUrl")
+        if url:
+            images.append(url)
 
     # Beschreibung: HTML grob zu Text vereinfachen
     raw_desc = item.get("description") or item.get("shortDescription") or ""
     description = _html_to_text(raw_desc)
 
     return {
-        "title": item.get("title", "").strip(),
+        "title": (item.get("title") or "").strip(),
         "price": _to_float(price.get("value")),
-        "currency": price.get("currency", ""),
-        "condition": item.get("condition", "").strip(),
+        "currency": price.get("currency") or "",
+        "condition": (item.get("condition") or "").strip(),
         "description": description,
-        "item_web_url": item.get("itemWebUrl", ""),
+        "item_web_url": item.get("itemWebUrl") or "",
         "ebay_item_id": item_id,
         "image_urls": images[:12],
         "quantity": quantity,
