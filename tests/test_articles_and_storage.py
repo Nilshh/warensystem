@@ -39,6 +39,23 @@ def test_suche_findet_ueber_lagerplatz(client, db, make_article):
     assert "Gelagert" in client.get("/articles?q=Dachboden").text
 
 
+def test_suche_findet_ueber_beschreibung(client, db, make_article):
+    make_article(title="Unauffälliger Titel",
+                 description="Original Ford Dachträger für Mondeo Turnier")
+    make_article(title="Anderer Artikel", description="etwas ganz anderes")
+    html = client.get("/articles?q=Mondeo&status=").text
+    assert "Unauffälliger Titel" in html
+    assert ">Anderer Artikel<" not in html
+
+
+def test_suche_findet_ueber_artikelnummer(client, db, make_article):
+    a = make_article(title="Irgendwas")
+    make_article(title="Noch was")
+    html = client.get(f"/articles?q={a.article_no}&status=").text
+    assert "Irgendwas" in html
+    assert ">Noch was<" not in html
+
+
 # --- Massenbearbeitung ------------------------------------------------------
 def test_bulk_status(client, db, make_article):
     a1, a2 = make_article(title="A1"), make_article(title="A2")

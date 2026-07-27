@@ -55,8 +55,10 @@ def list_articles(
         like = f"%{q}%"
         stmt = stmt.where(
             Article.title.ilike(like)
+            | Article.description.ilike(like)
             | Article.category.ilike(like)
             | Article.tags.ilike(like)
+            | Article.article_no.ilike(like)
             | Article.storage_area.ilike(like)
             | Article.storage_shelf.ilike(like)
             | Article.storage_bin.ilike(like)

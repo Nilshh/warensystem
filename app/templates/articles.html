@@ -12,7 +12,7 @@
 {# Live-Suche: Tippen bzw. eine Filteränderung lädt per htmx nur die
    Ergebnisliste neu. Ohne JavaScript bleibt der klassische "Filtern"-Knopf. #}
 <form class="filterbar" method="get" action="/articles">
-  <input type="text" name="q" value="{{ q }}" placeholder="Suche nach Titel oder Kategorie…"
+  <input type="text" name="q" value="{{ q }}" placeholder="Suche in Titel, Beschreibung, Nr., Kategorie, Tags, Lager…"
          hx-get="/articles" hx-trigger="input changed delay:350ms, search"
          hx-target="#articles-results" hx-swap="outerHTML"
          hx-include="closest form" hx-push-url="true">
