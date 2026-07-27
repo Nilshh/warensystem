@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 from .. import images
 from ..database import get_db
 from ..models import Article, StorageLocation
-from ..services import all_locations, make_qr_svg, format_storage, _storage_query, _storage_url
+from ..services import all_locations, make_qr_svg, make_qr_datauri, format_storage, _storage_query, _storage_url
 from ..web import templates
 
 router = APIRouter()
@@ -227,6 +227,6 @@ def storage_label(
             "request": request, "label": label,
             "query": _storage_query(area, shelf, bin),
             "url": _storage_url(area, shelf, bin),
-            "qr_svg": Markup(make_qr_svg(_storage_url(area, shelf, bin))),
+            "qr_datauri": make_qr_datauri(_storage_url(area, shelf, bin)),
         },
     )

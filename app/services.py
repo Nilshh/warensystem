@@ -1,10 +1,12 @@
 """Fachlogik und Hilfsfunktionen, die von mehreren Routern genutzt werden."""
+import base64
 import io
 import uuid
 import urllib.parse
 from datetime import datetime, timezone
 
 import qrcode
+import qrcode.constants
 import qrcode.image.svg
 from fastapi import Request, HTTPException
 from sqlalchemy import select
@@ -324,11 +326,29 @@ def _article_url(article_id: int) -> str:
 
 
 def make_qr_svg(data: str) -> str:
-    """Erzeugt einen QR-Code als SVG-String (ohne Bild-Abhängigkeit)."""
+    """QR-Code als SVG-String — für die Online-Vorschau (externes <img>)."""
     img = qrcode.make(data, image_factory=qrcode.image.svg.SvgPathImage, box_size=10, border=2)
     buf = io.BytesIO()
     img.save(buf)
     return buf.getvalue().decode("utf-8")
+
+
+def make_qr_png(data: str, box_size: int = 8, border: int = 2) -> bytes:
+    """QR-Code als PNG-Bytes."""
+    qr = qrcode.QRCode(box_size=box_size, border=border,
+                       error_correction=qrcode.constants.ERROR_CORRECT_M)
+    qr.add_data(data)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white").get_image()
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def make_qr_datauri(data: str) -> str:
+    """QR-Code als data:-URI (PNG) — zuverlässig für den Druck (kein inline-SVG)."""
+    b64 = base64.b64encode(make_qr_png(data)).decode("ascii")
+    return f"data:image/png;base64,{b64}"
 
 def format_storage(area: str, shelf: str, bin_: str) -> str:
     parts = []

@@ -18,8 +18,8 @@
       border: 1px solid #ddd; border-radius: 6px; text-align: center;
       box-shadow: 0 2px 12px rgba(0,0,0,.1);
     }
-    .label .qr { width: 42mm; height: 42mm; margin: 0 auto; }
-    .label .qr svg { width: 100%; height: 100%; display: block; }
+    .label .qr { width: 42mm; height: 42mm; margin: 0 auto; display: block;
+                 image-rendering: pixelated; }
     .label .artno { font-family: ui-monospace, monospace; font-weight: 700; font-size: 1.05rem; margin-top: 3mm; }
     .label .title { font-size: .82rem; margin-top: 1mm; line-height: 1.3;
                     display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
@@ -39,7 +39,7 @@
   </div>
 
   <div class="label">
-    <div class="qr">{{ qr_svg }}</div>
+    <img class="qr" src="{{ qr_datauri }}" alt="QR-Code">
     {% if article.article_no %}<div class="artno">{{ article.article_no }}</div>{% endif %}
     <div class="title">{{ article.title }}</div>
   </div>

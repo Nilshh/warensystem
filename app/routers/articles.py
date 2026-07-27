@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, selectinload
 from .. import config, ebay, images
 from ..database import get_db
 from ..models import Article, ArticleImage, Sale, StorageLocation, STATUSES, CONDITIONS, SHIPPING_METHODS, SHIPPING_OPTIONS, SHIPPING_PAYERS, SALE_PLATFORMS
-from ..services import assign_article_no, ALLOWED_IMAGE_EXT, parse_float, parse_date, apply_form, set_status, _set_article_storage, apply_storage, all_categories, all_locations, SORT_COLUMNS, INTAKE_LIMIT, parse_intake_lines, allocate_costs, _back_to_list, _form_context, _delete_image_files, _create_article_from_item, BULK_IMPORT_LIMIT, _get_article, _article_url, make_qr_svg, _sync_stock_status, advance_fulfillment
+from ..services import assign_article_no, ALLOWED_IMAGE_EXT, parse_float, parse_date, apply_form, set_status, _set_article_storage, apply_storage, all_categories, all_locations, SORT_COLUMNS, INTAKE_LIMIT, parse_intake_lines, allocate_costs, _back_to_list, _form_context, _delete_image_files, _create_article_from_item, BULK_IMPORT_LIMIT, _get_article, _article_url, make_qr_svg, make_qr_datauri, _sync_stock_status, advance_fulfillment
 from ..web import templates, format_eur
 
 log = logging.getLogger("warensystem")
@@ -201,7 +201,7 @@ async def bulk_labels(request: Request, db: Session = Depends(get_db)):
         {
             "article": a,
             "url": _article_url(a.id),
-            "qr_svg": Markup(make_qr_svg(_article_url(a.id))),
+            "qr_datauri": make_qr_datauri(_article_url(a.id)),
         }
         for a in articles
     ]
@@ -481,7 +481,7 @@ def article_label(article_id: int, request: Request, db: Session = Depends(get_d
             "request": request,
             "article": article,
             "url": _article_url(article_id),
-            "qr_svg": Markup(make_qr_svg(_article_url(article_id))),
+            "qr_datauri": make_qr_datauri(_article_url(article_id)),
         },
     )
 

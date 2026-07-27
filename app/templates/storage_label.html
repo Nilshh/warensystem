@@ -19,8 +19,8 @@
       box-shadow: 0 2px 12px rgba(0,0,0,.1);
     }
     .label .heading { font-size: .75rem; letter-spacing: .05em; text-transform: uppercase; color: #888; margin-bottom: 3mm; }
-    .label .qr { width: 50mm; height: 50mm; margin: 0 auto; }
-    .label .qr svg { width: 100%; height: 100%; display: block; }
+    .label .qr { width: 50mm; height: 50mm; margin: 0 auto; display: block;
+                 image-rendering: pixelated; }
     .label .loc { font-weight: 700; font-size: 1.15rem; margin-top: 4mm; }
     .label .url { font-size: .6rem; color: #888; margin-top: 2mm; word-break: break-all; }
 
@@ -40,7 +40,7 @@
 
   <div class="label">
     <div class="heading">Lagerplatz</div>
-    <div class="qr">{{ qr_svg }}</div>
+    <img class="qr" src="{{ qr_datauri }}" alt="QR-Code">
     <div class="loc">📍 {{ label }}</div>
     <div class="url">{{ url }}</div>
   </div>
